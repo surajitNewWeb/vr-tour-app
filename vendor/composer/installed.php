@@ -3,7 +3,7 @@
         'name' => 'vr-tour/app',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '4c97d764d0813357a03bfdc9c18b82ddb78ef28f',
+        'reference' => 'b7b5dc8957feaf89191a5727b3fdb6c76b84586a',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -76,7 +76,7 @@
         'vr-tour/app' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '4c97d764d0813357a03bfdc9c18b82ddb78ef28f',
+            'reference' => 'b7b5dc8957feaf89191a5727b3fdb6c76b84586a',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
