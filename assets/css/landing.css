@@ -1,0 +1,155 @@
+/* Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  font-family: 'Segoe UI', sans-serif;
+  color: #fff;
+  background: #0a0a0a;
+}
+
+/* Hero Section */
+.hero {
+  position: relative;
+  height: 100vh;
+  background: url('../images/backgrounds/hero-bg.jpg') no-repeat center center/cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hero-overlay {
+  background: rgba(0,0,0,0.6);
+  position: absolute;
+  inset: 0;
+}
+.hero-content {
+  position: relative;
+  text-align: center;
+  z-index: 2;
+  max-width: 800px;
+}
+.hero-content h1 {
+  font-size: 3rem;
+  font-weight: bold;
+}
+.hero-content h1 span {
+  color: #00e6d1;
+}
+.hero-content p {
+  margin: 15px 0;
+  font-size: 1.2rem;
+}
+.btn-primary {
+  display: inline-block;
+  padding: 12px 25px;
+  background: #00e6d1;
+  color: #000;
+  border-radius: 30px;
+  text-decoration: none;
+  font-weight: bold;
+  transition: 0.3s;
+}
+.btn-primary:hover {
+  background: #00b8a3;
+}
+
+/* Featured Tours */
+.featured {
+  padding: 60px 20px;
+  background: #121212;
+}
+.featured h2 {
+  text-align: center;
+  margin-bottom: 40px;
+  font-size: 2rem;
+}
+.tour-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(250px,1fr));
+  gap: 20px;
+}
+.tour-card {
+  background: #1e1e1e;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  transition: transform 0.3s;
+}
+.tour-card:hover {
+  transform: translateY(-5px);
+}
+.tour-card img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+}
+.tour-info {
+  padding: 15px;
+}
+.tour-info h3 {
+  font-size: 1.2rem;
+  margin-bottom: 10px;
+}
+.btn-secondary {
+  display: inline-block;
+  padding: 8px 18px;
+  background: transparent;
+  border: 1px solid #00e6d1;
+  border-radius: 20px;
+  color: #00e6d1;
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: 0.3s;
+}
+.btn-secondary:hover {
+  background: #00e6d1;
+  color: #000;
+}
+
+/* Categories */
+.categories {
+  padding: 60px 20px;
+  background: #0d0d0d;
+}
+.categories h2 {
+  text-align: center;
+  margin-bottom: 30px;
+}
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(150px,1fr));
+  gap: 15px;
+}
+.category-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  background: #1e1e1e;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  color: #fff;
+  text-decoration: none;
+  transition: 0.3s;
+}
+.category-card:hover {
+  background: #00e6d1;
+  color: #000;
+}
+
+/* CTA Section */
+.cta {
+  padding: 80px 20px;
+  background: linear-gradient(135deg,#00e6d1,#006d64);
+  text-align: center;
+}
+.cta h2 {
+  font-size: 2rem;
+  margin-bottom: 15px;
+}
+.cta p {
+  margin-bottom: 20px;
+  font-size: 1.1rem;
+}
