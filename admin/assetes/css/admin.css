@@ -1,0 +1,82 @@
+body {
+  margin: 0;
+  font-family: "Segoe UI", sans-serif;
+  background: #f5f6fa;
+}
+
+.admin-navbar {
+  width: 220px;
+  background: #111;
+  color: #fff;
+  height: 100vh;
+  position: fixed;
+  top: 0; left: 0;
+  padding: 20px;
+}
+
+.admin-navbar h2 {
+  font-size: 1.3rem;
+  margin-bottom: 20px;
+}
+.admin-navbar nav a {
+  display: block;
+  padding: 10px;
+  color: #ddd;
+  text-decoration: none;
+  border-radius: 5px;
+  transition: 0.3s;
+}
+.admin-navbar nav a:hover,
+.admin-navbar nav a.active {
+  background: #00bcd4;
+  color: #fff;
+}
+
+.admin-content {
+  margin-left: 240px;
+  padding: 20px;
+}
+
+.admin-form {
+  background: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+  margin-bottom: 30px;
+}
+.admin-form input,
+.admin-form textarea {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+.admin-form button {
+  padding: 10px 20px;
+  background: #00bcd4;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.admin-form button:hover {
+  background: #0097a7;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+}
+.admin-table th, .admin-table td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+}
+.admin-table img {
+  border-radius: 6px;
+}
