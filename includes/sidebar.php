@@ -3,7 +3,7 @@
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
 <!-- Sidebar -->
-<ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
+<ul class="sidebar navbar-nav bg-gradient-primary">
     <!-- Sidebar - Brand -->
     <a class="sidebar-brand d-flex align-items-center justify-content-center" href="dashboard.php">
         <div class="sidebar-brand-icon">
@@ -19,7 +19,8 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <li class="nav-item <?php echo $current_page == 'dashboard.php' ? 'active' : ''; ?>">
         <a class="nav-link" href="dashboard.php">
             <i class="fas fa-fw fa-tachometer-alt"></i>
-            <span>Dashboard</span></a>
+            <span>Dashboard</span>
+        </a>
     </li>
 
     <!-- Divider -->
@@ -34,35 +35,40 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <li class="nav-item <?php echo $current_page == 'manage-tours.php' ? 'active' : ''; ?>">
         <a class="nav-link" href="manage-tours.php">
             <i class="fas fa-fw fa-map-marked"></i>
-            <span>Tours</span></a>
+            <span>Tours</span>
+        </a>
     </li>
 
     <!-- Nav Item - Scenes -->
     <li class="nav-item <?php echo $current_page == 'manage-scenes.php' ? 'active' : ''; ?>">
         <a class="nav-link" href="manage-scenes.php">
             <i class="fas fa-fw fa-image"></i>
-            <span>Scenes</span></a>
+            <span>Scenes</span>
+        </a>
     </li>
 
     <!-- Nav Item - Hotspots -->
     <li class="nav-item <?php echo $current_page == 'manage-hotspots.php' ? 'active' : ''; ?>">
         <a class="nav-link" href="manage-hotspots.php">
             <i class="fas fa-fw fa-dot-circle"></i>
-            <span>Hotspots</span></a>
+            <span>Hotspots</span>
+        </a>
     </li>
 
     <!-- Nav Item - Users -->
     <li class="nav-item <?php echo $current_page == 'manage-users.php' ? 'active' : ''; ?>">
         <a class="nav-link" href="manage-users.php">
             <i class="fas fa-fw fa-users"></i>
-            <span>Users</span></a>
+            <span>Users</span>
+        </a>
     </li>
 
     <!-- Nav Item - Reviews -->
     <li class="nav-item <?php echo $current_page == 'manage-reviews.php' ? 'active' : ''; ?>">
         <a class="nav-link" href="manage-reviews.php">
             <i class="fas fa-fw fa-star"></i>
-            <span>Reviews</span></a>
+            <span>Reviews</span>
+        </a>
     </li>
 
     <!-- Divider -->

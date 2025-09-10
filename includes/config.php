@@ -1,47 +1,45 @@
 <?php
-// First, let's create the database configuration
 // includes/config.php
-$db_host = 'localhost';
-$db_name = 'vr_tour_app';
-$db_user = 'root';
-$db_pass = '';
 
-// Create a connection (includes/database.php)
-try {
-    $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8", $db_user, $db_pass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch(PDOException $e) {
-    die("Connection failed: " . $e->getMessage());
+// Database configuration
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'vr_tour_app');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+
+// Application settings
+define('SITE_NAME', 'VR Tour Application');
+define('ADMIN_EMAIL', 'admin@vrtour.com');
+
+// Session settings
+define('SESSION_TIMEOUT', 3600); // 1 hour
+
+// File upload paths
+define('PANORAMA_UPLOAD_PATH', '../assets/panoramas/uploads/');
+define('THUMBNAIL_UPLOAD_PATH', '../assets/images/uploads/');
+define('AVATAR_UPLOAD_PATH', '../assets/images/uploads/');
+
+// Maximum file sizes (in bytes)
+define('MAX_PANORAMA_SIZE', 10485760); // 10MB
+define('MAX_THUMBNAIL_SIZE', 2097152); // 2MB
+define('MAX_AVATAR_SIZE', 1048576); // 1MB
+
+// Allowed file types
+define('ALLOWED_IMAGE_TYPES', ['jpg', 'jpeg', 'png', 'gif']);
+define('ALLOWED_PANORAMA_TYPES', ['jpg', 'jpeg', 'png']);
+
+// Debug mode (set to false in production)
+define('DEBUG_MODE', true);
+
+// Error reporting
+if (DEBUG_MODE) {
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+} else {
+    error_reporting(0);
+    ini_set('display_errors', 0);
 }
 
-// Authentication functions (includes/auth.php)
-session_start();
-
-function isAdminLoggedIn() {
-    return isset($_SESSION['admin_id']) && !empty($_SESSION['admin_id']);
-}
-
-function redirectIfNotLoggedIn() {
-    if (!isAdminLoggedIn()) {
-        header("Location: index.php");
-        exit();
-    }
-}
-
-function loginAdmin($username, $password) {
-    global $pdo;
-    
-    $stmt = $pdo->prepare("SELECT * FROM admins WHERE username = ?");
-    $stmt->execute([$username]);
-    $admin = $stmt->fetch();
-    
-    if ($admin && password_verify($password, $admin['password'])) {
-        $_SESSION['admin_id'] = $admin['id'];
-        $_SESSION['admin_username'] = $admin['username'];
-        $_SESSION['admin_email'] = $admin['email'];
-        return true;
-    }
-    
-    return false;
-}
+// Set default timezone
+date_default_timezone_set('UTC');
 ?>
