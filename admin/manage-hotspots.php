@@ -10,8 +10,445 @@ require_once '../includes/database.php';
 $page_title = "VR Tour Admin - Manage Hotspots";
 redirectIfNotLoggedIn();
 
+// Handle form actions
+$action = $_GET['action'] ?? '';
+$hotspot_id = $_GET['id'] ?? 0;
 $scene_id = $_GET['scene_id'] ?? 0;
-$tour_id = 0; // Initialize with default value
+$tour_id = 0;
+
+// Delete hotspot
+if ($action === 'delete' && $hotspot_id) {
+    $stmt = $pdo->prepare("DELETE FROM hotspots WHERE id = ?");
+    if ($stmt->execute([$hotspot_id])) {
+        $_SESSION['success'] = "Hotspot deleted successfully.";
+    } else {
+        $_SESSION['error'] = "Error deleting hotspot.";
+    }
+    header("Location: manage-hotspots.php?scene_id=" . ($_GET['scene_id'] ?? ''));
+    exit();
+}
+
+// Handle create action - show form
+if ($action === 'create') {
+    $scene_id = $_GET['scene_id'] ?? 0;
+    
+    // Check if form was submitted
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        // Process form submission
+        $type = $_POST['type'];
+        $title = trim($_POST['title']);
+        $content = trim($_POST['content']);
+        $x = floatval($_POST['x']);
+        $y = floatval($_POST['y']);
+        $z = floatval($_POST['z']);
+        $target_scene_id = ($type === 'navigation') ? $_POST['target_scene_id'] : null;
+        $icon = $_POST['icon'] ?? 'info';
+        $scene_id = $_POST['scene_id'];
+        
+        // Validate input
+        if (empty($title) || empty($scene_id)) {
+            $_SESSION['error'] = "Hotspot title and scene selection are required.";
+        } else {
+            // Insert into database
+            $stmt = $pdo->prepare("
+                INSERT INTO hotspots (scene_id, target_scene_id, type, title, content, x, y, z, icon, created_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ");
+            
+            if ($stmt->execute([$scene_id, $target_scene_id, $type, $title, $content, $x, $y, $z, $icon])) {
+                $_SESSION['success'] = "Hotspot created successfully!";
+                header("Location: manage-hotspots.php?scene_id=" . $scene_id);
+                exit();
+            } else {
+                $_SESSION['error'] = "Error creating hotspot. Please try again.";
+                error_log("Hotspot creation error: " . print_r($stmt->errorInfo(), true));
+            }
+        }
+    }
+    
+    // Get scene information for the form
+    $scene = null;
+    if ($scene_id) {
+        $stmt = $pdo->prepare("
+            SELECT s.*, t.title as tour_title, t.id as tour_id 
+            FROM scenes s 
+            JOIN tours t ON s.tour_id = t.id 
+            WHERE s.id = ?
+        ");
+        $stmt->execute([$scene_id]);
+        $scene = $stmt->fetch();
+        
+        if ($scene) {
+            $tour_id = $scene['tour_id'];
+        }
+    }
+    
+    // Get all scenes for navigation targets
+    $all_scenes = [];
+    if ($tour_id) {
+        $stmt = $pdo->prepare("SELECT id, name FROM scenes WHERE tour_id = ? AND id != ? ORDER BY name");
+        $stmt->execute([$tour_id, $scene_id]);
+        $all_scenes = $stmt->fetchAll();
+    }
+    
+    // Show create form
+    include '../includes/header.php';
+    ?>
+    <!-- Begin Page Content -->
+    <div class="container-fluid">
+        <!-- Page Heading -->
+        <div class="d-sm-flex align-items-center justify-content-between mb-4">
+            <h1 class="h3 mb-0 text-gray-800">Add New Hotspot</h1>
+            <a href="manage-hotspots.php?scene_id=<?php echo $scene_id; ?>" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
+                <i class="fas fa-arrow-left fa-sm text-white-50"></i> Back to Hotspots
+            </a>
+        </div>
+
+        <!-- Messages -->
+        <?php if (isset($_SESSION['error'])): ?>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <?php echo $_SESSION['error']; unset($_SESSION['error']); ?>
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        <?php endif; ?>
+
+        <!-- Create Hotspot Form -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Hotspot Information</h6>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="?action=create">
+                    <input type="hidden" name="scene_id" value="<?php echo $scene_id; ?>">
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="type">Hotspot Type *</label>
+                                <select class="form-control" id="type" name="type" required onchange="toggleTargetScene()">
+                                    <option value="info">Information</option>
+                                    <option value="navigation">Navigation</option>
+                                    <option value="media">Media</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="title">Title *</label>
+                                <input type="text" class="form-control" id="title" name="title" required 
+                                       value="<?php echo isset($_POST['title']) ? htmlspecialchars($_POST['title']) : ''; ?>">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="content">Content (for Info hotspots)</label>
+                                <textarea class="form-control" id="content" name="content" rows="3"><?php echo isset($_POST['content']) ? htmlspecialchars($_POST['content']) : ''; ?></textarea>
+                            </div>
+                            
+                            <div id="targetSceneGroup" class="form-group" style="display: none;">
+                                <label for="target_scene_id">Target Scene (for Navigation hotspots) *</label>
+                                <select class="form-control" id="target_scene_id" name="target_scene_id">
+                                    <option value="">-- Select Target Scene --</option>
+                                    <?php foreach ($all_scenes as $target_scene): ?>
+                                        <option value="<?php echo $target_scene['id']; ?>">
+                                            <?php echo htmlspecialchars($target_scene['name']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="x">X Position</label>
+                                <input type="number" step="0.01" class="form-control" id="x" name="x" 
+                                       value="<?php echo isset($_POST['x']) ? htmlspecialchars($_POST['x']) : '0'; ?>">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="y">Y Position</label>
+                                <input type="number" step="0.01" class="form-control" id="y" name="y" 
+                                       value="<?php echo isset($_POST['y']) ? htmlspecialchars($_POST['y']) : '0'; ?>">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="z">Z Position</label>
+                                <input type="number" step="0.01" class="form-control" id="z" name="z" 
+                                       value="<?php echo isset($_POST['z']) ? htmlspecialchars($_POST['z']) : '0'; ?>">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="icon">Icon</label>
+                                <select class="form-control" id="icon" name="icon">
+                                    <option value="info">Info</option>
+                                    <option value="arrow">Arrow</option>
+                                    <option value="image">Image</option>
+                                    <option value="video">Video</option>
+                                    <option value="audio">Audio</option>
+                                </select>
+                            </div>
+                            
+                            <?php if ($scene): ?>
+                                <div class="alert alert-info">
+                                    <strong>Scene:</strong> <?php echo htmlspecialchars($scene['name']); ?>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <div class="form-group">
+                                <button type="submit" class="btn btn-primary btn-block">
+                                    <i class="fas fa-save"></i> Create Hotspot
+                                </button>
+                                <a href="manage-hotspots.php?scene_id=<?php echo $scene_id; ?>" class="btn btn-secondary btn-block">Cancel</a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- /.container-fluid -->
+
+    <script>
+    function toggleTargetScene() {
+        var type = document.getElementById('type').value;
+        var targetSceneGroup = document.getElementById('targetSceneGroup');
+        var targetSceneSelect = document.getElementById('target_scene_id');
+        
+        if (type === 'navigation') {
+            targetSceneGroup.style.display = 'block';
+            targetSceneSelect.required = true;
+        } else {
+            targetSceneGroup.style.display = 'none';
+            targetSceneSelect.required = false;
+        }
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        toggleTargetScene();
+    });
+    </script>
+
+    <?php
+    include '../includes/footer.php';
+    exit();
+}
+
+// Handle edit action - show edit form
+if ($action === 'edit' && $hotspot_id) {
+    // Get hotspot data
+    $stmt = $pdo->prepare("SELECT * FROM hotspots WHERE id = ?");
+    $stmt->execute([$hotspot_id]);
+    $hotspot = $stmt->fetch();
+    
+    if (!$hotspot) {
+        $_SESSION['error'] = "Hotspot not found.";
+        header("Location: manage-hotspots.php");
+        exit();
+    }
+    
+    $scene_id = $hotspot['scene_id'];
+    
+    // Get scene and tour information
+    $scene = null;
+    $tour_id = 0;
+    if ($scene_id) {
+        $stmt = $pdo->prepare("
+            SELECT s.*, t.title as tour_title, t.id as tour_id 
+            FROM scenes s 
+            JOIN tours t ON s.tour_id = t.id 
+            WHERE s.id = ?
+        ");
+        $stmt->execute([$scene_id]);
+        $scene = $stmt->fetch();
+        
+        if ($scene) {
+            $tour_id = $scene['tour_id'];
+        }
+    }
+    
+    // Get all scenes for navigation targets
+    $all_scenes = [];
+    if ($tour_id) {
+        $stmt = $pdo->prepare("SELECT id, name FROM scenes WHERE tour_id = ? AND id != ? ORDER BY name");
+        $stmt->execute([$tour_id, $scene_id]);
+        $all_scenes = $stmt->fetchAll();
+    }
+    
+    // Check if form was submitted
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        // Process form submission
+        $type = $_POST['type'];
+        $title = trim($_POST['title']);
+        $content = trim($_POST['content']);
+        $x = floatval($_POST['x']);
+        $y = floatval($_POST['y']);
+        $z = floatval($_POST['z']);
+        $target_scene_id = ($type === 'navigation') ? $_POST['target_scene_id'] : null;
+        $icon = $_POST['icon'] ?? 'info';
+        
+        // Validate input
+        if (empty($title)) {
+            $_SESSION['error'] = "Hotspot title is required.";
+        } else {
+            // Update database
+            $stmt = $pdo->prepare("
+                UPDATE hotspots 
+                SET type = ?, title = ?, content = ?, x = ?, y = ?, z = ?, 
+                    target_scene_id = ?, icon = ?, updated_at = NOW() 
+                WHERE id = ?
+            ");
+            
+            if ($stmt->execute([$type, $title, $content, $x, $y, $z, $target_scene_id, $icon, $hotspot_id])) {
+                $_SESSION['success'] = "Hotspot updated successfully!";
+                header("Location: manage-hotspots.php?scene_id=" . $scene_id);
+                exit();
+            } else {
+            }
+        }
+    }
+    
+    // Show edit form
+    include '../includes/header.php';
+    ?>
+    <!-- Begin Page Content -->
+    <div class="container-fluid">
+        <!-- Page Heading -->
+        <div class="d-sm-flex align-items-center justify-content-between mb-4">
+            <h1 class="h3 mb-0 text-gray-800">Edit Hotspot: <?php echo htmlspecialchars($hotspot['title']); ?></h1>
+            <a href="manage-hotspots.php?scene_id=<?php echo $scene_id; ?>" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
+                <i class="fas fa-arrow-left fa-sm text-white-50"></i> Back to Hotspots
+            </a>
+        </div>
+
+        <!-- Messages -->
+        <?php if (isset($_SESSION['error'])): ?>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <?php echo $_SESSION['error']; unset($_SESSION['error']); ?>
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        <?php endif; ?>
+
+        <!-- Edit Hotspot Form -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Hotspot Information</h6>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="?action=edit&id=<?php echo $hotspot_id; ?>&scene_id=<?php echo $scene_id; ?>">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="type">Hotspot Type *</label>
+                                <select class="form-control" id="type" name="type" required onchange="toggleTargetScene()">
+                                    <option value="info" <?php echo $hotspot['type'] === 'info' ? 'selected' : ''; ?>>Information</option>
+                                    <option value="navigation" <?php echo $hotspot['type'] === 'navigation' ? 'selected' : ''; ?>>Navigation</option>
+                                    <option value="media" <?php echo $hotspot['type'] === 'media' ? 'selected' : ''; ?>>Media</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="title">Title *</label>
+                                <input type="text" class="form-control" id="title" name="title" required 
+                                       value="<?php echo isset($_POST['title']) ? htmlspecialchars($_POST['title']) : htmlspecialchars($hotspot['title']); ?>">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="content">Content (for Info hotspots)</label>
+                                <textarea class="form-control" id="content" name="content" rows="3"><?php echo isset($_POST['content']) ? htmlspecialchars($_POST['content']) : htmlspecialchars($hotspot['content']); ?></textarea>
+                            </div>
+                            
+                            <div id="targetSceneGroup" class="form-group" style="<?php echo $hotspot['type'] === 'navigation' ? '' : 'display: none;'; ?>">
+                                <label for="target_scene_id">Target Scene (for Navigation hotspots) *</label>
+                                <select class="form-control" id="target_scene_id" name="target_scene_id" <?php echo $hotspot['type'] === 'navigation' ? 'required' : ''; ?>>
+                                    <option value="">-- Select Target Scene --</option>
+                                    <?php foreach ($all_scenes as $target_scene): ?>
+                                        <option value="<?php echo $target_scene['id']; ?>" 
+                                            <?php echo $hotspot['target_scene_id'] == $target_scene['id'] ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($target_scene['name']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="x">X Position</label>
+                                <input type="number" step="0.01" class="form-control" id="x" name="x" 
+                                       value="<?php echo isset($_POST['x']) ? htmlspecialchars($_POST['x']) : htmlspecialchars($hotspot['x']); ?>">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="y">Y Position</label>
+                                <input type="number" step="0.01" class="form-control" id="y" name="y" 
+                                       value="<?php echo isset($_POST['y']) ? htmlspecialchars($_POST['y']) : htmlspecialchars($hotspot['y']); ?>">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="z">Z Position</label>
+                                <input type="number" step="0.01" class="form-control" id="z" name="z" 
+                                       value="<?php echo isset($_POST['z']) ? htmlspecialchars($_POST['z']) : htmlspecialchars($hotspot['z']); ?>">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="icon">Icon</label>
+                                <select class="form-control" id="icon" name="icon">
+                                    <option value="info" <?php echo $hotspot['icon'] === 'info' ? 'selected' : ''; ?>>Info</option>
+                                    <option value="arrow" <?php echo $hotspot['icon'] === 'arrow' ? 'selected' : ''; ?>>Arrow</option>
+                                    <option value="image" <?php echo $hotspot['icon'] === 'image' ? 'selected' : ''; ?>>Image</option>
+                                    <option value="video" <?php echo $hotspot['icon'] === 'video' ? 'selected' : ''; ?>>Video</option>
+                                    <option value="audio" <?php echo $hotspot['icon'] === 'audio' ? 'selected' : ''; ?>>Audio</option>
+                                </select>
+                            </div>
+                            
+                            <?php if ($scene): ?>
+                                <div class="alert alert-info">
+                                    <strong>Scene:</strong> <?php echo htmlspecialchars($scene['name']); ?>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <div class="form-group">
+                                <button type="submit" class="btn btn-primary btn-block">
+                                    <i class="fas fa-save"></i> Update Hotspot
+                                </button>
+                                <a href="manage-hotspots.php?scene_id=<?php echo $scene_id; ?>" class="btn btn-secondary btn-block">Cancel</a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- /.container-fluid -->
+
+    <script>
+    function toggleTargetScene() {
+        var type = document.getElementById('type').value;
+        var targetSceneGroup = document.getElementById('targetSceneGroup');
+        var targetSceneSelect = document.getElementById('target_scene_id');
+        
+        if (type === 'navigation') {
+            targetSceneGroup.style.display = 'block';
+            targetSceneSelect.required = true;
+        } else {
+            targetSceneGroup.style.display = 'none';
+            targetSceneSelect.required = false;
+        }
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        toggleTargetScene();
+    });
+    </script>
+
+    <?php
+    include '../includes/footer.php';
+    exit();
+}
 
 // Get scene and tour information
 $scene = null;
@@ -77,6 +514,25 @@ include '../includes/header.php';
             </div>
         <?php endif; ?>
     </div>
+
+    <!-- Messages -->
+    <?php if (isset($_SESSION['success'])): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <?php echo $_SESSION['success']; unset($_SESSION['success']); ?>
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION['error'])): ?>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <?php echo $_SESSION['error']; unset($_SESSION['error']); ?>
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    <?php endif; ?>
 
     <!-- Breadcrumb -->
     <?php if ($scene && $tour_id): ?>
