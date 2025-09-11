@@ -1,269 +1,311 @@
-// Main JavaScript for VR Tour Application - Frontend
+// assets/js/main.js
 
+// DOM Ready
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize tooltips
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-
-    // Initialize popovers
-    const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
-    const popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
-        return new bootstrap.Popover(popoverTriggerEl);
-    });
-
-    // Mobile menu toggle
-    const mobileMenuToggle = document.querySelector('.navbar-toggler');
-    if (mobileMenuToggle) {
-        mobileMenuToggle.addEventListener('click', function() {
-            document.body.classList.toggle('mobile-menu-open');
-        });
-    }
-
-    // Search functionality
-    const searchForm = document.querySelector('.search-form');
-    if (searchForm) {
-        searchForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const searchInput = this.querySelector('input[type="search"]');
-            const searchTerm = searchInput.value.trim();
-            
-            if (searchTerm.length > 2) {
-                // Implement search functionality
-                console.log('Searching for:', searchTerm);
-                // window.location.href = `tours.php?search=${encodeURIComponent(searchTerm)}`;
-            } else {
-                // Show error
-                searchInput.focus();
-            }
-        });
-    }
-
-    // Tour card interactions
-    const tourCards = document.querySelectorAll('.tour-card');
-    tourCards.forEach(card => {
-        card.addEventListener('click', function(e) {
-            if (!e.target.closest('.btn')) {
-                const tourId = this.dataset.tourId;
-                window.location.href = `tour.php?id=${tourId}`;
-            }
-        });
-    });
-
-    // Favorite button functionality
-    const favoriteButtons = document.querySelectorAll('.favorite-btn');
-    favoriteButtons.forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const tourId = this.dataset.tourId;
-            const isFavorite = this.classList.contains('active');
-            
-            // Toggle visual state
-            this.classList.toggle('active');
-            
-            // Update icon
-            const icon = this.querySelector('i');
-            if (icon) {
-                if (this.classList.contains('active')) {
-                    icon.classList.remove('far');
-                    icon.classList.add('fas');
-                } else {
-                    icon.classList.remove('fas');
-                    icon.classList.add('far');
-                }
-            }
-            
-            // Send AJAX request to update favorites
-            toggleFavorite(tourId, !isFavorite);
-        });
-    });
-
-    // VR experience initialization
-    initVRExperience();
-
-    // Image lazy loading
-    initLazyLoading();
-
-    // Form validation
-    initFormValidation();
+    initComponents();
+    setupEventListeners();
+    initAnimations();
 });
 
-// Toggle favorite status
-function toggleFavorite(tourId, isFavorite) {
-    // Check if user is logged in
-    if (typeof isUserLoggedIn === 'undefined' || !isUserLoggedIn) {
-        showLoginPrompt();
-        return;
-    }
+// Initialize all components
+function initComponents() {
+    // Back to top button
+    initBackToTop();
+    
+    // Mobile menu
+    initMobileMenu();
+    
+    // Dropdown menus
+    initDropdowns();
+    
+    // Form validation
+    initForms();
+    
+    // Image lazy loading
+    initLazyLoading();
+    
+    // Toast notifications
+    initToasts();
+}
 
-    // Send AJAX request
-    fetch('../includes/favorites.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `tour_id=${tourId}&action=${isFavorite ? 'add' : 'remove'}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (!data.success) {
-            // Revert visual state if failed
-            const btn = document.querySelector(`.favorite-btn[data-tour-id="${tourId}"]`);
-            if (btn) {
-                btn.classList.toggle('active');
-                const icon = btn.querySelector('i');
-                if (icon) {
-                    if (btn.classList.contains('active')) {
-                        icon.classList.remove('far');
-                        icon.classList.add('fas');
-                    } else {
-                        icon.classList.remove('fas');
-                        icon.classList.add('far');
-                    }
-                }
+// Setup event listeners
+function setupEventListeners() {
+    // Window scroll events
+    window.addEventListener('scroll', handleScroll);
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', handleKeyboardShortcuts);
+    
+    // Form submissions
+    document.addEventListener('submit', handleFormSubmissions);
+}
+
+// Initialize animations
+function initAnimations() {
+    // Intersection Observer for scroll animations
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('animate-in');
             }
-            showToast('Error updating favorites', 'error');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showToast('Network error', 'error');
+        });
+    }, observerOptions);
+
+    // Observe elements with animation classes
+    document.querySelectorAll('.animate-on-scroll').forEach(el => {
+        observer.observe(el);
     });
 }
 
-// Initialize VR experience
-function initVRExperience() {
-    // Check if we're on a VR page
-    if (document.querySelector('a-scene')) {
-        // Add loading indicator
-        const scene = document.querySelector('a-scene');
-        scene.addEventListener('loaded', function() {
-            document.getElementById('vr-loading').style.display = 'none';
-        });
-
-        // Add keyboard controls for non-VR users
-        document.addEventListener('keydown', function(e) {
-            const camera = document.querySelector('[camera]');
-            if (!camera) return;
-
-            const position = camera.getAttribute('position');
-            let newPosition = {x: position.x, y: position.y, z: position.z};
-            const rotation = camera.getAttribute('rotation');
-
-            switch(e.key) {
-                case 'ArrowUp':
-                    newPosition.x += Math.sin(rotation.y * Math.PI / 180) * 0.5;
-                    newPosition.z += Math.cos(rotation.y * Math.PI / 180) * 0.5;
-                    break;
-                case 'ArrowDown':
-                    newPosition.x -= Math.sin(rotation.y * Math.PI / 180) * 0.5;
-                    newPosition.z -= Math.cos(rotation.y * Math.PI / 180) * 0.5;
-                    break;
-                case 'ArrowLeft':
-                    newPosition.x += Math.sin((rotation.y - 90) * Math.PI / 180) * 0.5;
-                    newPosition.z += Math.cos((rotation.y - 90) * Math.PI / 180) * 0.5;
-                    break;
-                case 'ArrowRight':
-                    newPosition.x += Math.sin((rotation.y + 90) * Math.PI / 180) * 0.5;
-                    newPosition.z += Math.cos((rotation.y + 90) * Math.PI / 180) * 0.5;
-                    break;
-                default:
-                    return;
-            }
-
-            camera.setAttribute('position', newPosition);
+// Back to top functionality
+function initBackToTop() {
+    const backToTopBtn = document.getElementById('back-to-top');
+    
+    if (backToTopBtn) {
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
         });
     }
 }
 
-// Initialize lazy loading
+// Mobile menu functionality
+function initMobileMenu() {
+    const mobileMenu = document.getElementById('mobileMenu');
+    const menuBtn = document.querySelector('[data-bs-toggle="collapse"]');
+    
+    if (menuBtn && mobileMenu) {
+        menuBtn.addEventListener('click', () => {
+            mobileMenu.classList.toggle('show');
+        });
+    }
+}
+
+// Dropdown menus
+function initDropdowns() {
+    const dropdowns = document.querySelectorAll('.dropdown');
+    
+    dropdowns.forEach(dropdown => {
+        dropdown.addEventListener('mouseenter', showDropdown);
+        dropdown.addEventListener('mouseleave', hideDropdown);
+    });
+}
+
+function showDropdown(e) {
+    const dropdown = e.currentTarget;
+    const menu = dropdown.querySelector('.dropdown-menu');
+    menu.classList.add('show');
+}
+
+function hideDropdown(e) {
+    const dropdown = e.currentTarget;
+    const menu = dropdown.querySelector('.dropdown-menu');
+    menu.classList.remove('show');
+}
+
+// Form handling
+function initForms() {
+    const forms = document.querySelectorAll('form[data-validate]');
+    
+    forms.forEach(form => {
+        form.setAttribute('novalidate', 'true');
+        form.addEventListener('submit', validateForm);
+    });
+}
+
+function validateForm(e) {
+    const form = e.target;
+    let isValid = true;
+    
+    // Clear previous errors
+    form.querySelectorAll('.error-message').forEach(el => el.remove());
+    form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+    
+    // Validate required fields
+    form.querySelectorAll('[required]').forEach(input => {
+        if (!input.value.trim()) {
+            showFieldError(input, 'This field is required');
+            isValid = false;
+        }
+    });
+    
+    // Validate email fields
+    form.querySelectorAll('input[type="email"]').forEach(input => {
+        if (input.value && !isValidEmail(input.value)) {
+            showFieldError(input, 'Please enter a valid email address');
+            isValid = false;
+        }
+    });
+    
+    if (!isValid) {
+        e.preventDefault();
+        // Focus on first error
+        const firstError = form.querySelector('.is-invalid');
+        if (firstError) {
+            firstError.focus();
+        }
+    }
+}
+
+function showFieldError(input, message) {
+    input.classList.add('is-invalid');
+    
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-message text-danger small mt-1';
+    errorDiv.textContent = message;
+    
+    input.parentNode.appendChild(errorDiv);
+}
+
+function isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
+
+// Lazy loading
 function initLazyLoading() {
     if ('IntersectionObserver' in window) {
-        const lazyImages = document.querySelectorAll('img.lazy');
-        
-        const imageObserver = new IntersectionObserver((entries, observer) => {
+        const lazyObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
                     const img = entry.target;
                     img.src = img.dataset.src;
                     img.classList.remove('lazy');
-                    imageObserver.unobserve(img);
+                    lazyObserver.unobserve(img);
                 }
             });
         });
 
-        lazyImages.forEach(img => {
-            imageObserver.observe(img);
+        document.querySelectorAll('img.lazy').forEach(img => {
+            lazyObserver.observe(img);
         });
     }
 }
 
-// Initialize form validation
-function initFormValidation() {
-    // Select all forms with validation needs
-    const forms = document.querySelectorAll('form[novalidate]');
+// Toast notifications
+function initToasts() {
+    // Check for toast messages in session storage
+    const toastMessage = sessionStorage.getItem('toastMessage');
+    const toastType = sessionStorage.getItem('toastType');
     
-    forms.forEach(form => {
-        form.addEventListener('submit', function(e) {
-            if (!this.checkValidity()) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-            
-            this.classList.add('was-validated');
-        });
-    });
+    if (toastMessage) {
+        showToast(toastMessage, toastType || 'info');
+        sessionStorage.removeItem('toastMessage');
+        sessionStorage.removeItem('toastType');
+    }
 }
 
-// Show toast notification
 function showToast(message, type = 'info') {
-    // Create toast container if it doesn't exist
-    let toastContainer = document.getElementById('toast-container');
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toast-container';
-        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
-        document.body.appendChild(toastContainer);
-    }
-
-    // Create toast
-    const toastEl = document.createElement('div');
-    toastEl.className = `toast align-items-center text-white bg-${type} border-0`;
-    toastEl.setAttribute('role', 'alert');
-    toastEl.setAttribute('aria-live', 'assertive');
-    toastEl.setAttribute('aria-atomic', 'true');
+    const toastContainer = document.getElementById('toast-container') || createToastContainer();
     
-    toastEl.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body">
-                ${message}
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-content">
+            <i class="toast-icon ${getToastIcon(type)}"></i>
+            <span class="toast-message">${message}</span>
         </div>
+        <button class="toast-close" onclick="this.parentElement.remove()">
+            <i class="fas fa-times"></i>
+        </button>
     `;
+    
+    toastContainer.appendChild(toast);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.remove();
+        }
+    }, 5000);
+}
 
-    toastContainer.appendChild(toastEl);
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+    return container;
+}
+
+function getToastIcon(type) {
+    const icons = {
+        success: 'fas fa-check-circle',
+        error: 'fas fa-exclamation-circle',
+        warning: 'fas fa-exclamation-triangle',
+        info: 'fas fa-info-circle'
+    };
+    return icons[type] || icons.info;
+}
+
+// Scroll handling
+function handleScroll() {
+    const backToTopBtn = document.getElementById('back-to-top');
+    const scrollY = window.scrollY;
     
-    // Show toast
-    const toast = new bootstrap.Toast(toastEl);
-    toast.show();
+    if (backToTopBtn) {
+        if (scrollY > 300) {
+            backToTopBtn.classList.remove('hidden');
+        } else {
+            backToTopBtn.classList.add('hidden');
+        }
+    }
     
-    // Remove toast after it's hidden
-    toastEl.addEventListener('hidden.bs.toast', function() {
-        toastEl.remove();
+    // Parallax effects
+    document.querySelectorAll('.parallax').forEach(el => {
+        const speed = parseFloat(el.dataset.speed) || 0.5;
+        const yPos = -(scrollY * speed);
+        el.style.transform = `translateY(${yPos}px)`;
     });
 }
 
-// Show login prompt
-function showLoginPrompt() {
-    const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
-    loginModal.show();
+// Keyboard shortcuts
+function handleKeyboardShortcuts(e) {
+    // Ctrl/Cmd + K for search
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[type="search"]');
+        if (searchInput) {
+            searchInput.focus();
+        }
+    }
+    
+    // Escape key to close modals
+    if (e.key === 'Escape') {
+        const openModal = document.querySelector('.modal.show');
+        if (openModal) {
+            bootstrap.Modal.getInstance(openModal).hide();
+        }
+    }
 }
 
-// Debounce function for search and resize events
+// Form submissions
+function handleFormSubmissions(e) {
+    const form = e.target;
+    
+    // Add loading state to submit button
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<span class="loading"></span> Processing...';
+        submitBtn.disabled = true;
+        
+        // Revert after submission (if not redirected)
+        setTimeout(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }, 3000);
+    }
+}
+
+// Utility functions
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -276,60 +318,22 @@ function debounce(func, wait) {
     };
 }
 
-// Format tour duration
-function formatDuration(minutes) {
-    if (minutes < 60) {
-        return `${minutes} min`;
-    } else {
-        const hours = Math.floor(minutes / 60);
-        const mins = minutes % 60;
-        return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-    }
-}
-
-// Get URL parameters
-function getUrlParams() {
-    const params = {};
-    const queryString = window.location.search;
-    const urlParams = new URLSearchParams(queryString);
-    
-    for (const [key, value] of urlParams) {
-        params[key] = value;
-    }
-    
-    return params;
-}
-
-// Scroll to top function
-function scrollToTop() {
-    window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-    });
-}
-
-// Add scroll to top button
-function initScrollToTop() {
-    const scrollButton = document.createElement('button');
-    scrollButton.id = 'scroll-to-top';
-    scrollButton.className = 'btn btn-primary scroll-to-top';
-    scrollButton.innerHTML = '<i class="fas fa-chevron-up"></i>';
-    scrollButton.addEventListener('click', scrollToTop);
-    document.body.appendChild(scrollButton);
-
-    // Show/hide based on scroll position
-    window.addEventListener('scroll', debounce(function() {
-        if (window.pageYOffset > 300) {
-            scrollButton.classList.add('visible');
-        } else {
-            scrollButton.classList.remove('visible');
+function throttle(func, limit) {
+    let inThrottle;
+    return function() {
+        const args = arguments;
+        const context = this;
+        if (!inThrottle) {
+            func.apply(context, args);
+            inThrottle = true;
+            setTimeout(() => inThrottle = false, limit);
         }
-    }, 100));
+    };
 }
 
-// Initialize when DOM is loaded
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initScrollToTop);
-} else {
-    initScrollToTop();
-}
+// Export for global access
+window.VRApp = {
+    showToast,
+    debounce,
+    throttle
+};

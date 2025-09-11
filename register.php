@@ -1,41 +1,82 @@
 <?php
-require_once __DIR__ . '/includes/config.php';
+// register.php
+require_once 'includes/config.php';
+require_once 'includes/user-auth.php';
+require_once 'includes/database.php';
 
-$message = '';
+redirectIfUserLoggedIn();
 
+// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $conn->real_escape_string($_POST['username']);
-    $email = $conn->real_escape_string($_POST['email']);
-    $password = password_hash($_POST['password'], PASSWORD_BCRYPT);
-
-    // default role user
-    $sql = "INSERT INTO users (username, email, password, role) VALUES ('$username', '$email', '$password', 'user')";
-    if ($conn->query($sql)) {
-        $message = "Registration successful! You can now <a href='login.php'>login</a>.";
+    $username = trim($_POST['username']);
+    $email = trim($_POST['email']);
+    $password = $_POST['password'];
+    $confirm_password = $_POST['confirm_password'];
+    
+    // Validate passwords match
+    if ($password !== $confirm_password) {
+        $_SESSION['user_error'] = "Passwords do not match.";
     } else {
-        $message = "Error: " . $conn->error;
+        if (registerUser($username, $email, $password)) {
+            header("Location: user/dashboard.php");
+            exit();
+        }
     }
 }
+
+$page_title = "Register - VR Tour Application";
+include 'includes/user-header.php';
 ?>
 
-<div class="container mt-4">
-  <h2>User Registration</h2>
-  <?php if ($message): ?>
-    <div class="alert alert-info"><?= $message ?></div>
-  <?php endif; ?>
-  <form method="POST">
-    <div class="mb-3">
-      <label class="form-label">Username</label>
-      <input type="text" name="username" class="form-control" required>
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="text-center">Create Account</h3>
+            </div>
+            <div class="card-body">
+                <?php if (isset($_SESSION['user_error'])): ?>
+                    <div class="alert alert-danger">
+                        <?php echo $_SESSION['user_error']; unset($_SESSION['user_error']); ?>
+                    </div>
+                <?php endif; ?>
+                
+                <form method="POST" action="">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" 
+                               value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>" 
+                               required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="email" name="email" 
+                               value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" 
+                               required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                        <small class="form-text text-muted">Minimum 6 characters</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">Confirm Password</label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">Register</button>
+                </form>
+                
+                <hr>
+                <div class="text-center">
+                    <p>Already have an account? <a href="login.php">Login here</a></p>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="mb-3">
-      <label class="form-label">Email</label>
-      <input type="email" name="email" class="form-control" required>
-    </div>
-    <div class="mb-3">
-      <label class="form-label">Password</label>
-      <input type="password" name="password" class="form-control" required>
-    </div>
-    <button type="submit" class="btn btn-success">Register</button>
-  </form>
 </div>
+
+<?php include 'includes/user-footer.php'; ?>

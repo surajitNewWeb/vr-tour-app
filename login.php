@@ -1,55 +1,70 @@
 <?php
-session_start();
-require_once __DIR__ . '/includes/config.php';
+// login.php
+require_once 'includes/config.php';
+require_once 'includes/user-auth.php';
+require_once 'includes/database.php';
 
-$message = '';
+redirectIfUserLoggedIn();
 
+// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = $conn->real_escape_string($_POST['email']);
+    $username = trim($_POST['username']);
     $password = $_POST['password'];
-
-    $sql = "SELECT * FROM users WHERE email='$email' LIMIT 1";
-    $result = $conn->query($sql);
-
-    if ($result && $result->num_rows > 0) {
-        $user = $result->fetch_assoc();
-
-        if (password_verify($password, $user['password'])) {
-            // ✅ Login success
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['role'] = $user['role'];
-
-            // Redirect based on role
-            if ($user['role'] === 'admin') {
-                header("Location: admin/dashboard.php");
-            } else {
-                header("Location: profile.php");
-            }
-            exit;
-        } else {
-            $message = "Invalid password!";
-        }
-    } else {
-        $message = "No account found with this email.";
+    
+    if (loginUser($username, $password)) {
+        $redirect_url = isset($_SESSION['user_redirect_url']) ? $_SESSION['user_redirect_url'] : 'user/dashboard.php';
+        unset($_SESSION['user_redirect_url']);
+        header("Location: " . $redirect_url);
+        exit();
     }
 }
+
+$page_title = "Login - VR Tour Application";
+include 'includes/user-header.php';
 ?>
 
-<div class="container mt-4">
-  <h2>User Login</h2>
-  <?php if ($message): ?>
-    <div class="alert alert-danger"><?= $message ?></div>
-  <?php endif; ?>
-  <form method="POST">
-    <div class="mb-3">
-      <label class="form-label">Email</label>
-      <input type="email" name="email" class="form-control" required>
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="text-center">Login to Your Account</h3>
+            </div>
+            <div class="card-body">
+                <?php if (isset($_SESSION['user_error'])): ?>
+                    <div class="alert alert-danger">
+                        <?php echo $_SESSION['user_error']; unset($_SESSION['user_error']); ?>
+                    </div>
+                <?php endif; ?>
+                
+                <form method="POST" action="">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username or Email</label>
+                        <input type="text" class="form-control" id="username" name="username" 
+                               value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>" 
+                               required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="remember" name="remember">
+                        <label class="form-check-label" for="remember">Remember me</label>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">Login</button>
+                </form>
+                
+                <hr>
+                <div class="text-center">
+                    <p>Don't have an account? <a href="register.php">Register here</a></p>
+                    <p><a href="forgot-password.php">Forgot your password?</a></p>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="mb-3">
-      <label class="form-label">Password</label>
-      <input type="password" name="password" class="form-control" required>
-    </div>
-    <button type="submit" class="btn btn-primary">Login</button>
-  </form>
 </div>
+
+<?php include 'includes/user-footer.php'; ?>
