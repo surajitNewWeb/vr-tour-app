@@ -1251,13 +1251,13 @@ $user_data = getUserData();
                         <i class="fas fa-home" aria-hidden="true"></i>
                         <span>Home</span>
                     </a>
-                    <a href="tours.php"
+                    <a href="<?php echo BASE_URL; ?>tours.php"
                         class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'tours.php' ? 'active' : ''; ?>"
                         aria-current="<?php echo basename($_SERVER['PHP_SELF']) == 'tours.php' ? 'page' : 'false'; ?>">
                         <i class="fas fa-compass" aria-hidden="true"></i>
                         <span>Browse Tours</span>
                     </a>
-                    <a href="categories.php"
+                    <a href="<?php echo BASE_URL; ?>categories.php"
                         class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'categories.php' ? 'active' : ''; ?>"
                         aria-current="<?php echo basename($_SERVER['PHP_SELF']) == 'categories.php' ? 'page' : 'false'; ?>">
                         <i class="fas fa-tags" aria-hidden="true"></i>
@@ -1267,49 +1267,47 @@ $user_data = getUserData();
 
                 <div class="navbar-end">
                     <?php if (isUserLoggedIn()): ?>
-                    <div class="navbar-item has-dropdown">
-                        <a class="nav-link" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">
-                            <span class="user-avatar">
-                                <?php if ($user_data['avatar']): ?>
-                                <img src="<?php echo BASE_URL; ?>assets/images/uploads/<?php echo $user_data['avatar']; ?>"
-                                    alt="<?php echo htmlspecialchars($user_data['username']); ?>" loading="lazy">
-                                <?php else: ?>
-                                <i class="fas fa-user-circle" aria-hidden="true"></i>
-                                <?php endif; ?>
-                            </span>
-                            <span>
-                                <?php echo htmlspecialchars($user_data['username']); ?>
-                            </span>
-                        </a>
-                        <div class="navbar-dropdown" role="menu">
-                            <a href="user/dashboard.php" class="dropdown-item" role="menuitem">
-                                <i class="fas fa-tachometer-alt" aria-hidden="true"></i> Dashboard
+                        <div class="navbar-item has-dropdown">
+                            <a class="nav-link" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">
+                                <span class="user-avatar">
+                                    <?php if ($user_data['avatar']): ?>
+                                        <img src="<?php echo BASE_URL; ?>assets/images/uploads/<?php echo $user_data['avatar']; ?>"
+                                            alt="<?php echo htmlspecialchars($user_data['username']); ?>" loading="lazy">
+                                    <?php else: ?>
+                                        <i class="fas fa-user-circle" aria-hidden="true"></i>
+                                    <?php endif; ?>
+                                </span>
+                                <span><?php echo htmlspecialchars($user_data['username']); ?></span>
                             </a>
-                            <a href="user/profile.php" class="dropdown-item" role="menuitem">
-                                <i class="fas fa-user" aria-hidden="true"></i> Profile
-                            </a>
-                            <a href="user/favorites.php" class="dropdown-item" role="menuitem">
-                                <i class="fas fa-heart" aria-hidden="true"></i> Favorites
-                            </a>
-                            <hr class="dropdown-divider" role="separator">
-                            <a href="logout.php" class="dropdown-item" role="menuitem">
-                                <i class="fas fa-sign-out-alt" aria-hidden="true"></i> Logout
-                            </a>
+                            <div class="navbar-dropdown" role="menu">
+                                <a href="<?php echo BASE_URL; ?>user/dashboard.php" class="dropdown-item" role="menuitem">
+                                    <i class="fas fa-tachometer-alt" aria-hidden="true"></i> Dashboard
+                                </a>
+                                <a href="<?php echo BASE_URL; ?>user/profile.php" class="dropdown-item" role="menuitem">
+                                    <i class="fas fa-user" aria-hidden="true"></i> Profile
+                                </a>
+                                <a href="<?php echo BASE_URL; ?>user/favorites.php" class="dropdown-item" role="menuitem">
+                                    <i class="fas fa-heart" aria-hidden="true"></i> Favorites
+                                </a>
+                                <hr class="dropdown-divider" role="separator">
+                                <a href="<?php echo BASE_URL; ?>logout.php" class="dropdown-item" role="menuitem">
+                                    <i class="fas fa-sign-out-alt" aria-hidden="true"></i> Logout
+                                </a>
+                            </div>
                         </div>
-                    </div>
                     <?php else: ?>
-                    <div class="navbar-item">
-                        <div class="buttons">
-                            <a href="register.php" class="btn btn-outline">
-                                <i class="fas fa-user-plus" aria-hidden="true"></i>
-                                <span>Sign Up</span>
-                            </a>
-                            <a href="login.php" class="btn btn-primary">
-                                <i class="fas fa-sign-in-alt" aria-hidden="true"></i>
-                                <span>Login</span>
-                            </a>
+                        <div class="navbar-item">
+                            <div class="buttons">
+                                <a href="<?php echo BASE_URL; ?>register.php" class="btn btn-outline">
+                                    <i class="fas fa-user-plus" aria-hidden="true"></i>
+                                    <span>Sign Up</span>
+                                </a>
+                                <a href="<?php echo BASE_URL; ?>login.php" class="btn btn-primary">
+                                    <i class="fas fa-sign-in-alt" aria-hidden="true"></i>
+                                    <span>Login</span>
+                                </a>
+                            </div>
                         </div>
-                    </div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -1321,6 +1319,7 @@ $user_data = getUserData();
             </button>
         </div>
     </nav>
+
 
     <!-- Main Content -->
     <main class="main-content" role="main">

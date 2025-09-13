@@ -1,55 +1,51 @@
 <?php
-// user/favorite.php
+// user/favorites.php
 require_once '../includes/config.php';
 require_once '../includes/user-auth.php';
 require_once '../includes/database.php';
 
-redirectIfUserNotLoggedIn();
-
-header('Content-Type: application/json');
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $tour_id = intval($_POST['tour_id']);
-    $action = $_POST['action'] ?? 'toggle';
-    
-    // Check if tour exists and is published
-    $tour_stmt = $pdo->prepare("SELECT id FROM tours WHERE id = ? AND published = 1");
-    $tour_stmt->execute([$tour_id]);
-    
-    if (!$tour_stmt->fetch()) {
-        echo json_encode(['success' => false, 'message' => 'Tour not found']);
-        exit();
-    }
-    
-    // Check if already favorited
-    $fav_stmt = $pdo->prepare("SELECT id FROM favorites WHERE user_id = ? AND tour_id = ?");
-    $fav_stmt->execute([$_SESSION['user_id'], $tour_id]);
-    $existing_fav = $fav_stmt->fetch();
-    
-    if ($action === 'add' || ($action === 'toggle' && !$existing_fav)) {
-        // Add to favorites
-        $insert_stmt = $pdo->prepare("
-            INSERT INTO favorites (user_id, tour_id, created_at) 
-            VALUES (?, ?, NOW())
-        ");
-        
-        if ($insert_stmt->execute([$_SESSION['user_id'], $tour_id])) {
-            echo json_encode(['success' => true, 'status' => 'added']);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Error adding to favorites']);
-        }
-        
-    } elseif ($action === 'remove' || ($action === 'toggle' && $existing_fav)) {
-        // Remove from favorites
-        $delete_stmt = $pdo->prepare("DELETE FROM favorites WHERE user_id = ? AND tour_id = ?");
-        
-        if ($delete_stmt->execute([$_SESSION['user_id'], $tour_id])) {
-            echo json_encode(['success' => true, 'status' => 'removed']);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Error removing from favorites']);
-        }
-    }
-} else {
-    echo json_encode(['success' => false, 'message' => 'Invalid request method']);
+if (!isUserLoggedIn()) {
+    header('Location: ../login.php');
+    exit;
 }
+
+// Get user's favorite tours
+$stmt = $pdo->prepare("
+    SELECT t.*, 
+           (SELECT COUNT(*) FROM scenes s WHERE s.tour_id = t.id) as scene_count,
+           (SELECT AVG(rating) FROM reviews r WHERE r.tour_id = t.id AND r.approved = 1) as avg_rating
+    FROM tours t 
+    INNER JOIN favorites f ON t.id = f.tour_id 
+    WHERE f.user_id = :user_id AND t.published = 1
+    ORDER BY f.created_at DESC
+");
+$stmt->execute([':user_id' => $_SESSION['user_id']]);
+$favorite_tours = $stmt->fetchAll();
+
+$page_title = "My Favorites";
+include '../includes/user-header.php';
 ?>
+
+<div class="container">
+    <h1>My Favorite Tours</h1>
+    
+    <?php if (!empty($favorite_tours)): ?>
+        <div class="row">
+            <?php foreach ($favorite_tours as $tour): ?>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <!-- Tour card content similar to tours.php -->
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php else: ?>
+        <div class="alert alert-info">
+            <h4>No favorites yet!</h4>
+            <p>Start exploring tours and add them to your favorites.</p>
+            <a href="../tours.php" class="btn btn-primary">Browse Tours</a>
+        </div>
+    <?php endif; ?>
+</div>
+
+<?php include '../includes/user-footer.php'; ?>
