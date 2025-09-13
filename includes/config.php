@@ -10,6 +10,7 @@ define('DB_PASS', '');
 // Application settings
 define('SITE_NAME', 'VR Tour Application');
 define('ADMIN_EMAIL', 'admin@vrtour.com');
+define('BASE_URL', 'http://' . $_SERVER['HTTP_HOST'] . '/vr-tour-app/');
 
 // Session settings
 define('SESSION_TIMEOUT', 3600); // 1 hour

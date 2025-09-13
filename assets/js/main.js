@@ -1,339 +1,461 @@
+// index page
+
+
 // assets/js/main.js
+class VRApp {
+    constructor() {
+        this.init();
+    }
 
-// DOM Ready
-document.addEventListener('DOMContentLoaded', function() {
-    initComponents();
-    setupEventListeners();
-    initAnimations();
-});
+    init() {
+        this.setupEventListeners();
+        this.initComponents();
+        this.handleAuthState();
+        this.checkPreferredTheme();
+    }
 
-// Initialize all components
-function initComponents() {
-    // Back to top button
-    initBackToTop();
-    
-    // Mobile menu
-    initMobileMenu();
-    
-    // Dropdown menus
-    initDropdowns();
-    
-    // Form validation
-    initForms();
-    
-    // Image lazy loading
-    initLazyLoading();
-    
-    // Toast notifications
-    initToasts();
-}
+    setupEventListeners() {
+        // Window events
+        window.addEventListener('scroll', this.handleScroll.bind(this));
+        window.addEventListener('resize', this.debounce(this.handleResize.bind(this), 250));
+        document.addEventListener('keydown', this.handleKeyboardShortcuts.bind(this));
 
-// Setup event listeners
-function setupEventListeners() {
-    // Window scroll events
-    window.addEventListener('scroll', handleScroll);
-    
-    // Keyboard shortcuts
-    document.addEventListener('keydown', handleKeyboardShortcuts);
-    
-    // Form submissions
-    document.addEventListener('submit', handleFormSubmissions);
-}
+        // Navigation
+        document.addEventListener('click', this.handleNavigation.bind(this));
+    }
 
-// Initialize animations
-function initAnimations() {
-    // Intersection Observer for scroll animations
-    const observerOptions = {
-        threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px'
-    };
+    initComponents() {
+        this.initBackToTop();
+        this.initMobileNavigation();
+        this.initDropdowns();
+        this.initModals();
+        this.initForms();
+        this.initToasts();
+        this.initLazyLoading();
+    }
 
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('animate-in');
+    handleAuthState() {
+        const authElements = document.querySelectorAll('[data-auth]');
+        authElements.forEach(el => {
+            const requiresAuth = el.dataset.auth === 'required';
+            const isLoggedIn = document.body.classList.contains('user-logged-in');
+            
+            if (requiresAuth && !isLoggedIn) {
+                el.style.display = 'none';
             }
         });
-    }, observerOptions);
+    }
 
-    // Observe elements with animation classes
-    document.querySelectorAll('.animate-on-scroll').forEach(el => {
-        observer.observe(el);
-    });
-}
+    checkPreferredTheme() {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const savedTheme = localStorage.getItem('theme');
+        
+        if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+            document.documentElement.classList.add('dark');
+        }
+    }
 
-// Back to top functionality
-function initBackToTop() {
-    const backToTopBtn = document.getElementById('back-to-top');
-    
-    if (backToTopBtn) {
-        backToTopBtn.addEventListener('click', () => {
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
+    handleScroll() {
+        this.toggleBackToTop();
+        this.animateOnScroll();
+    }
+
+    handleResize() {
+        this.handleMobileMenu();
+    }
+
+    handleKeyboardShortcuts(e) {
+        // Ctrl/Cmd + K for search
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            this.focusSearch();
+        }
+
+        // Escape key
+        if (e.key === 'Escape') {
+            this.closeAllModals();
+        }
+    }
+
+    handleNavigation(e) {
+        const target = e.target;
+        
+        // Mobile menu toggle
+        if (target.closest('[data-toggle="mobile-menu"]')) {
+            e.preventDefault();
+            this.toggleMobileMenu();
+        }
+
+        // Dropdown toggle
+        if (target.closest('[data-toggle="dropdown"]')) {
+            e.preventDefault();
+            this.toggleDropdown(target.closest('[data-toggle="dropdown"]'));
+        }
+
+        // Modal toggle
+        if (target.closest('[data-toggle="modal"]')) {
+            e.preventDefault();
+            this.openModal(target.closest('[data-toggle="modal"]').dataset.target);
+        }
+    }
+
+    initBackToTop() {
+        this.backToTopBtn = document.getElementById('back-to-top');
+        if (this.backToTopBtn) {
+            this.backToTopBtn.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             });
+        }
+    }
+
+    toggleBackToTop() {
+        if (this.backToTopBtn) {
+            if (window.scrollY > 300) {
+                this.backToTopBtn.classList.add('visible');
+            } else {
+                this.backToTopBtn.classList.remove('visible');
+            }
+        }
+    }
+
+    initMobileNavigation() {
+        this.mobileMenu = document.getElementById('mobile-menu');
+        this.menuToggle = document.querySelector('[data-toggle="mobile-menu"]');
+    }
+
+    toggleMobileMenu() {
+        this.mobileMenu.classList.toggle('active');
+        this.menuToggle.classList.toggle('active');
+        
+        // Prevent body scroll when menu is open
+        document.body.classList.toggle('menu-open');
+    }
+
+    handleMobileMenu() {
+        if (window.innerWidth > 768 && this.mobileMenu.classList.contains('active')) {
+            this.mobileMenu.classList.remove('active');
+            this.menuToggle.classList.remove('active');
+            document.body.classList.remove('menu-open');
+        }
+    }
+
+    initDropdowns() {
+        this.dropdowns = document.querySelectorAll('.dropdown');
+        this.dropdowns.forEach(dropdown => {
+            dropdown.addEventListener('mouseenter', () => this.openDropdown(dropdown));
+            dropdown.addEventListener('mouseleave', () => this.closeDropdown(dropdown));
         });
     }
-}
 
-// Mobile menu functionality
-function initMobileMenu() {
-    const mobileMenu = document.getElementById('mobileMenu');
-    const menuBtn = document.querySelector('[data-bs-toggle="collapse"]');
-    
-    if (menuBtn && mobileMenu) {
-        menuBtn.addEventListener('click', () => {
-            mobileMenu.classList.toggle('show');
-        });
+    openDropdown(dropdown) {
+        dropdown.classList.add('open');
     }
-}
 
-// Dropdown menus
-function initDropdowns() {
-    const dropdowns = document.querySelectorAll('.dropdown');
-    
-    dropdowns.forEach(dropdown => {
-        dropdown.addEventListener('mouseenter', showDropdown);
-        dropdown.addEventListener('mouseleave', hideDropdown);
-    });
-}
-
-function showDropdown(e) {
-    const dropdown = e.currentTarget;
-    const menu = dropdown.querySelector('.dropdown-menu');
-    menu.classList.add('show');
-}
-
-function hideDropdown(e) {
-    const dropdown = e.currentTarget;
-    const menu = dropdown.querySelector('.dropdown-menu');
-    menu.classList.remove('show');
-}
-
-// Form handling
-function initForms() {
-    const forms = document.querySelectorAll('form[data-validate]');
-    
-    forms.forEach(form => {
-        form.setAttribute('novalidate', 'true');
-        form.addEventListener('submit', validateForm);
-    });
-}
-
-function validateForm(e) {
-    const form = e.target;
-    let isValid = true;
-    
-    // Clear previous errors
-    form.querySelectorAll('.error-message').forEach(el => el.remove());
-    form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-    
-    // Validate required fields
-    form.querySelectorAll('[required]').forEach(input => {
-        if (!input.value.trim()) {
-            showFieldError(input, 'This field is required');
-            isValid = false;
-        }
-    });
-    
-    // Validate email fields
-    form.querySelectorAll('input[type="email"]').forEach(input => {
-        if (input.value && !isValidEmail(input.value)) {
-            showFieldError(input, 'Please enter a valid email address');
-            isValid = false;
-        }
-    });
-    
-    if (!isValid) {
-        e.preventDefault();
-        // Focus on first error
-        const firstError = form.querySelector('.is-invalid');
-        if (firstError) {
-            firstError.focus();
-        }
+    closeDropdown(dropdown) {
+        dropdown.classList.remove('open');
     }
-}
 
-function showFieldError(input, message) {
-    input.classList.add('is-invalid');
-    
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'error-message text-danger small mt-1';
-    errorDiv.textContent = message;
-    
-    input.parentNode.appendChild(errorDiv);
-}
+    toggleDropdown(button) {
+        const dropdown = button.closest('.dropdown');
+        dropdown.classList.toggle('open');
+    }
 
-function isValidEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-}
-
-// Lazy loading
-function initLazyLoading() {
-    if ('IntersectionObserver' in window) {
-        const lazyObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const img = entry.target;
-                    img.src = img.dataset.src;
-                    img.classList.remove('lazy');
-                    lazyObserver.unobserve(img);
+    initModals() {
+        this.modals = document.querySelectorAll('.modal');
+        this.modals.forEach(modal => {
+            const closeBtn = modal.querySelector('.modal-close');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => this.closeModal(modal));
+            }
+            
+            // Close modal when clicking outside
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.closeModal(modal);
                 }
             });
         });
+    }
 
-        document.querySelectorAll('img.lazy').forEach(img => {
-            lazyObserver.observe(img);
+    openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.add('active');
+            document.body.classList.add('modal-open');
+        }
+    }
+
+    closeModal(modal) {
+        modal.classList.remove('active');
+        document.body.classList.remove('modal-open');
+    }
+
+    closeAllModals() {
+        this.modals.forEach(modal => this.closeModal(modal));
+    }
+
+    initForms() {
+        this.forms = document.querySelectorAll('form[data-validate]');
+        this.forms.forEach(form => {
+            form.setAttribute('novalidate', 'true');
+            form.addEventListener('submit', (e) => this.validateForm(e));
         });
     }
-}
 
-// Toast notifications
-function initToasts() {
-    // Check for toast messages in session storage
-    const toastMessage = sessionStorage.getItem('toastMessage');
-    const toastType = sessionStorage.getItem('toastType');
-    
-    if (toastMessage) {
-        showToast(toastMessage, toastType || 'info');
-        sessionStorage.removeItem('toastMessage');
-        sessionStorage.removeItem('toastType');
-    }
-}
+    validateForm(e) {
+        const form = e.target;
+        let isValid = true;
 
-function showToast(message, type = 'info') {
-    const toastContainer = document.getElementById('toast-container') || createToastContainer();
-    
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.innerHTML = `
-        <div class="toast-content">
-            <i class="toast-icon ${getToastIcon(type)}"></i>
-            <span class="toast-message">${message}</span>
-        </div>
-        <button class="toast-close" onclick="this.parentElement.remove()">
-            <i class="fas fa-times"></i>
-        </button>
-    `;
-    
-    toastContainer.appendChild(toast);
-    
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-        if (toast.parentElement) {
-            toast.remove();
-        }
-    }, 5000);
-}
+        // Clear previous errors
+        form.querySelectorAll('.error-message').forEach(el => el.remove());
+        form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
 
-function createToastContainer() {
-    const container = document.createElement('div');
-    container.id = 'toast-container';
-    container.className = 'toast-container';
-    document.body.appendChild(container);
-    return container;
-}
+        // Validate required fields
+        form.querySelectorAll('[required]').forEach(input => {
+            if (!input.value.trim()) {
+                this.showFieldError(input, 'This field is required');
+                isValid = false;
+            }
+        });
 
-function getToastIcon(type) {
-    const icons = {
-        success: 'fas fa-check-circle',
-        error: 'fas fa-exclamation-circle',
-        warning: 'fas fa-exclamation-triangle',
-        info: 'fas fa-info-circle'
-    };
-    return icons[type] || icons.info;
-}
+        // Validate email fields
+        form.querySelectorAll('input[type="email"]').forEach(input => {
+            if (input.value && !this.isValidEmail(input.value)) {
+                this.showFieldError(input, 'Please enter a valid email address');
+                isValid = false;
+            }
+        });
 
-// Scroll handling
-function handleScroll() {
-    const backToTopBtn = document.getElementById('back-to-top');
-    const scrollY = window.scrollY;
-    
-    if (backToTopBtn) {
-        if (scrollY > 300) {
-            backToTopBtn.classList.remove('hidden');
+        if (!isValid) {
+            e.preventDefault();
+            // Focus on first error
+            const firstError = form.querySelector('.is-invalid');
+            if (firstError) {
+                firstError.focus();
+            }
         } else {
-            backToTopBtn.classList.add('hidden');
+            // Add loading state
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                this.setLoadingState(submitBtn, true);
+            }
         }
     }
-    
-    // Parallax effects
-    document.querySelectorAll('.parallax').forEach(el => {
-        const speed = parseFloat(el.dataset.speed) || 0.5;
-        const yPos = -(scrollY * speed);
-        el.style.transform = `translateY(${yPos}px)`;
-    });
-}
 
-// Keyboard shortcuts
-function handleKeyboardShortcuts(e) {
-    // Ctrl/Cmd + K for search
-    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
+    showFieldError(input, message) {
+        input.classList.add('is-invalid');
+        
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = message;
+        
+        input.parentNode.appendChild(errorDiv);
+    }
+
+    isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+
+    setLoadingState(button, isLoading) {
+        if (isLoading) {
+            button.disabled = true;
+            button.innerHTML = '<span class="loading"></span> Processing...';
+        } else {
+            button.disabled = false;
+            button.innerHTML = button.dataset.originalText;
+        }
+    }
+
+    initToasts() {
+        this.toastContainer = document.getElementById('toast-container') || this.createToastContainer();
+        
+        // Check for toast messages in session storage
+        const toastMessage = sessionStorage.getItem('toastMessage');
+        const toastType = sessionStorage.getItem('toastType');
+        
+        if (toastMessage) {
+            this.showToast(toastMessage, toastType);
+            sessionStorage.removeItem('toastMessage');
+            sessionStorage.removeItem('toastType');
+        }
+    }
+
+    createToastContainer() {
+        const container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+        return container;
+    }
+
+    showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `
+            <div class="toast-content">
+                <i class="toast-icon ${this.getToastIcon(type)}"></i>
+                <span class="toast-message">${message}</span>
+            </div>
+            <button class="toast-close" onclick="this.parentElement.remove()">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        
+        this.toastContainer.appendChild(toast);
+        
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.remove();
+            }
+        }, 5000);
+    }
+
+    getToastIcon(type) {
+        const icons = {
+            success: 'fas fa-check-circle',
+            error: 'fas fa-exclamation-circle',
+            warning: 'fas fa-exclamation-triangle',
+            info: 'fas fa-info-circle'
+        };
+        return icons[type] || icons.info;
+    }
+
+    initLazyLoading() {
+        if ('IntersectionObserver' in window) {
+            this.lazyObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.classList.remove('lazy');
+                        this.lazyObserver.unobserve(img);
+                    }
+                });
+            });
+
+            document.querySelectorAll('img.lazy').forEach(img => {
+                this.lazyObserver.observe(img);
+            });
+        }
+    }
+
+    animateOnScroll() {
+        const elements = document.querySelectorAll('.animate-on-scroll');
+        elements.forEach(element => {
+            const elementTop = element.getBoundingClientRect().top;
+            const elementVisible = 150;
+            
+            if (elementTop < window.innerHeight - elementVisible) {
+                element.classList.add('animated');
+            }
+        });
+    }
+
+    focusSearch() {
         const searchInput = document.querySelector('input[type="search"]');
         if (searchInput) {
             searchInput.focus();
         }
     }
-    
-    // Escape key to close modals
-    if (e.key === 'Escape') {
-        const openModal = document.querySelector('.modal.show');
-        if (openModal) {
-            bootstrap.Modal.getInstance(openModal).hide();
-        }
-    }
-}
 
-// Form submissions
-function handleFormSubmissions(e) {
-    const form = e.target;
-    
-    // Add loading state to submit button
-    const submitBtn = form.querySelector('button[type="submit"]');
-    if (submitBtn) {
-        const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<span class="loading"></span> Processing...';
-        submitBtn.disabled = true;
-        
-        // Revert after submission (if not redirected)
-        setTimeout(() => {
-            submitBtn.innerHTML = originalText;
-            submitBtn.disabled = false;
-        }, 3000);
-    }
-}
-
-// Utility functions
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
+    // Utility functions
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timetimeout);
+            timeout = setTimeout(later, wait);
         };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
+    }
 
-function throttle(func, limit) {
-    let inThrottle;
-    return function() {
-        const args = arguments;
-        const context = this;
-        if (!inThrottle) {
-            func.apply(context, args);
-            inThrottle = true;
-            setTimeout(() => inThrottle = false, limit);
+    throttle(func, limit) {
+        let inThrottle;
+        return function() {
+            const args = arguments;
+            const context = this;
+            if (!inThrottle) {
+                func.apply(context, args);
+                inThrottle = true;
+                setTimeout(() => inThrottle = false, limit);
+            }
+        };
+    }
+
+    // VR specific functions
+    initVRScene() {
+        if (typeof AFRAME !== 'undefined') {
+            this.setupVRHotspots();
+            this.setupVRNavigation();
         }
-    };
+    }
+
+    setupVRHotspots() {
+        const hotspots = document.querySelectorAll('.vr-hotspot');
+        hotspots.forEach(hotspot => {
+            hotspot.addEventListener('click', (e) => {
+                const type = hotspot.dataset.type;
+                const target = hotspot.dataset.target;
+                const content = hotspot.dataset.content;
+                
+                this.handleHotspotClick(type, target, content);
+            });
+        });
+    }
+
+    handleHotspotClick(type, target, content) {
+        switch (type) {
+            case 'navigation':
+                this.navigateToScene(target);
+                break;
+            case 'info':
+                this.showInfoPanel(content);
+                break;
+            case 'media':
+                this.playMedia(content);
+                break;
+        }
+    }
+
+    navigateToScene(sceneId) {
+        // Implementation for scene navigation
+        console.log('Navigating to scene:', sceneId);
+    }
+
+    showInfoPanel(content) {
+        // Implementation for info panel
+        console.log('Showing info:', content);
+    }
+
+    playMedia(mediaUrl) {
+        // Implementation for media playback
+        console.log('Playing media:', mediaUrl);
+    }
 }
 
-// Export for global access
-window.VRApp = {
-    showToast,
-    debounce,
-    throttle
-};
+// Initialize the application
+document.addEventListener('DOMContentLoaded', function() {
+    window.VRApp = new VRApp();
+    
+    // Initialize VR scene if on VR page
+    if (document.querySelector('a-scene')) {
+        window.VRApp.initVRScene();
+    }
+});
+
+// Global functions for easy access
+function showToast(message, type = 'info') {
+    if (window.VRApp) {
+        window.VRApp.showToast(message, type);
+    }
+}
+
+function setLoading(button, isLoading) {
+    if (window.VRApp) {
+        window.VRApp.setLoadingState(button, isLoading);
+    }
+}

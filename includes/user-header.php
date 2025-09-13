@@ -1,208 +1,271 @@
 <?php
 // includes/user-header.php
 if (!isset($page_title)) {
-    $page_title = 'VR Tour Application';
+    $page_title = "VR Tour Application";
 }
-$base_url="http://localhost/vr-tour-app/";
-$current_user = getCurrentUser();
+
+if (!isset($body_class)) {
+    $body_class = "";
+}
+
+if (isUserLoggedIn()) {
+    $body_class .= " user-logged-in";
+} else {
+    $body_class .= " user-guest";
+}
+
+$user_data = getUserData();
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-100">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $page_title; ?> - VR Tour Application</title>
-    
+    <meta name="description"
+        content="Experience immersive virtual reality tours of museums, landmarks, and cultural sites from around the world.">
+    <meta name="keywords" content="VR, virtual reality, 360 tours, museums, landmarks, cultural heritage">
+    <meta name="author" content="VR Tour Application">
+    <meta name="robots" content="index, follow">
+
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="<?php echo htmlspecialchars($page_title); ?> - VR Tour Application">
+    <meta property="og:description"
+        content="Experience immersive virtual reality tours of museums, landmarks, and cultural sites from around the world.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<?php echo BASE_URL . ltrim($_SERVER['REQUEST_URI'], '/'); ?>">
+    <meta property="og:image" content="<?php echo BASE_URL; ?>assets/images/og-image.jpg">
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="<?php echo htmlspecialchars($page_title); ?> - VR Tour Application">
+    <meta name="twitter:description"
+        content="Experience immersive virtual reality tours of museums, landmarks, and cultural sites from around the world.">
+    <meta name="twitter:image" content="<?php echo BASE_URL; ?>assets/images/og-image.jpg">
+
+    <!-- Favicon -->
+    <link rel="apple-touch-icon" sizes="180x180"
+        href="<?php echo BASE_URL; ?>assets/images/favicon/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32"
+        href="<?php echo BASE_URL; ?>assets/images/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16"
+        href="<?php echo BASE_URL; ?>assets/images/favicon/favicon-16x16.png">
+    <link rel="manifest" href="<?php echo BASE_URL; ?>assets/images/favicon/site.webmanifest">
+
+    <title>
+        <?php echo htmlspecialchars($page_title); ?> - VR Tour Application
+    </title>
+
     <!-- Preload critical resources -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    
-    <!-- Main CSS -->
-    <link href="<?php echo $base_url; ?>assets/css/main.css" rel="stylesheet">
-    
-    <!-- Professional Header Styles -->
+    <link rel="preload" href="<?php echo BASE_URL; ?>assets/css/main.css" as="style">
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" as="style"
+        crossorigin="anonymous">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <!-- A-Frame -->
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+
+    <!-- Preconnect to external domains -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://aframe.io">
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "VR Tour Application",
+      "url": "<?php echo BASE_URL; ?>",
+      "description": "Experience immersive virtual reality tours of museums, landmarks, and cultural sites from around the world.",
+      "applicationCategory": "MultimediaApplication",
+      "operatingSystem": "Web Browser",
+      "permissions": "microphone, vr",
+      "screenshot": "<?php echo BASE_URL; ?>assets/images/og-image.jpg"
+    }
+    </script>
+
     <style>
         :root {
-            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            --accent-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            --dark-gradient: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-            
-            --primary-color: #667eea;
-            --secondary-color: #764ba2;
-            --accent-color: #4facfe;
-            --text-primary: #1a202c;
-            --text-secondary: #4a5568;
-            --text-muted: #718096;
-            --border-color: #e2e8f0;
-            --bg-glass: rgba(255, 255, 255, 0.95);
-            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
-            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
-            --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.1);
-            
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            --border-radius: 12px;
-            --border-radius-sm: 8px;
-            --border-radius-lg: 16px;
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #ec4899;
+            --accent: #06b6d4;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            --radius-sm: 0.125rem;
+            --radius: 0.375rem;
+            --radius-md: 0.5rem;
+            --radius-lg: 0.75rem;
+            --radius-xl: 1rem;
+            --radius-2xl: 1.5rem;
+            --transition: all 0.15s ease-in-out;
         }
 
         * {
             box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-            margin: 0;
-            padding: 0;
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
             line-height: 1.6;
+            color: var(--gray-800);
+            background: var(--gray-50);
+            overflow-x: hidden;
         }
 
-        /* Skip Link */
-        .skip-link {
-            position: absolute;
-            top: -40px;
-            left: 6px;
-            background: var(--primary-color);
-            color: white;
-            padding: 8px 16px;
-            text-decoration: none;
-            border-radius: var(--border-radius-sm);
-            font-weight: 500;
-            z-index: 1000;
-            transition: var(--transition);
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
         }
 
-        .skip-link:focus {
-            top: 6px;
+        ::-webkit-scrollbar-track {
+            background: var(--gray-100);
         }
 
-        /* Navbar */
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-dark);
+        }
+
+        /* Header Styles with Modern Design */
         .navbar {
-            background: var(--bg-glass);
-            backdrop-filter: blur(20px) saturate(180%);
-            -webkit-backdrop-filter: blur(20px) saturate(180%);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: var(--shadow-md);
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            padding: 0;
-        }
-
-        .navbar::before {
-            content: '';
-            position: absolute;
+            position: fixed;
             top: 0;
             left: 0;
             right: 0;
-            bottom: 0;
-            background: linear-gradient(90deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
-            pointer-events: none;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+            padding: 0;
+            z-index: 1000;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
         }
 
-        .container {
+        .navbar.scrolled {
+            background: rgba(255, 255, 255, 0.98);
+            box-shadow: var(--shadow-lg);
+            border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+        }
+
+        .navbar-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             max-width: 1400px;
             margin: 0 auto;
-            padding: 0 24px;
+            padding: 1rem 1.5rem;
             position: relative;
         }
 
-        .navbar .container {
-            padding: 16px 24px;
-        }
-
-        .d-flex {
-            display: flex;
-        }
-
-        .align-items-center {
-            align-items: center;
-        }
-
-        .justify-content-between {
-            justify-content: space-between;
-        }
-
-        .w-100 {
-            width: 100%;
-        }
-
-        .gap-4 {
-            gap: 1.5rem;
-        }
-
-        .gap-2 {
-            gap: 0.5rem;
-        }
-
-        .me-1 {
-            margin-right: 0.25rem;
-        }
-
-        .me-2 {
-            margin-right: 0.5rem;
-        }
-
-        .mt-4 {
-            margin-top: 1rem;
-        }
-
-        .mb-6 {
-            margin-bottom: 2rem;
-        }
-
-        /* Brand Logo */
         .navbar-brand {
             display: flex;
             align-items: center;
             text-decoration: none;
-            font-family: 'Space Grotesk', sans-serif;
-            font-weight: 700;
+            font-weight: 800;
             font-size: 1.5rem;
-            background: var(--primary-gradient);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--primary);
             transition: var(--transition);
             position: relative;
+            z-index: 10;
         }
 
-        .navbar-brand:hover {
-            transform: translateY(-1px);
-            filter: brightness(1.1);
+        .navbar-brand::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            left: -8px;
+            right: -8px;
+            bottom: -8px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(236, 72, 153, 0.1));
+            border-radius: var(--radius-lg);
+            opacity: 0;
+            transition: var(--transition);
+            z-index: -1;
+        }
+
+        .navbar-brand:hover::before {
+            opacity: 1;
         }
 
         .navbar-brand i {
-            background: var(--primary-gradient);
+            margin-right: 0.75rem;
+            font-size: 2rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
             -webkit-background-clip: text;
-            background-clip: text;
             -webkit-text-fill-color: transparent;
-            font-size: 1.75rem;
-            margin-right: 0.5rem;
+            background-clip: text;
+            animation: pulse 2s ease-in-out infinite alternate;
         }
 
-        /* Navigation Links */
-        .nav-link {
-            color: var(--text-primary);
-            text-decoration: none;
-            font-weight: 500;
-            padding: 10px 16px;
-            border-radius: var(--border-radius-sm);
-            transition: var(--transition);
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            100% {
+                transform: scale(1.05);
+            }
+        }
+
+        .navbar-menu {
             display: flex;
             align-items: center;
+            gap: 2rem;
+            flex: 1;
+            justify-content: center;
+        }
+
+        .navbar-start {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .navbar-end {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .nav-link {
+            color: var(--gray-700);
+            text-decoration: none;
+            padding: 0.75rem 1.25rem;
+            border-radius: var(--radius-lg);
+            transition: var(--transition);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
             position: relative;
             overflow: hidden;
         }
@@ -214,567 +277,1050 @@ $current_user = getCurrentUser();
             left: -100%;
             width: 100%;
             height: 100%;
-            background: var(--primary-gradient);
-            transition: var(--transition);
-            z-index: -1;
-        }
-
-        .nav-link:hover {
-            color: white;
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-md);
+            background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.1), transparent);
+            transition: left 0.5s;
         }
 
         .nav-link:hover::before {
-            left: 0;
+            left: 100%;
         }
 
-        /* Buttons */
-        .btn {
-            padding: 12px 24px;
-            border-radius: var(--border-radius);
-            font-weight: 600;
-            font-size: 0.95rem;
-            text-decoration: none;
-            border: none;
-            cursor: pointer;
-            transition: var(--transition);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn-primary {
-            background: var(--primary-gradient);
-            color: white;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .btn-primary:hover {
+        .nav-link:hover,
+        .nav-link.active {
+            color: var(--primary);
+            background: rgba(99, 102, 241, 0.1);
             transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
-            filter: brightness(1.1);
-        }
-
-        .btn-outline {
-            background: transparent;
-            color: var(--text-primary);
-            border: 2px solid var(--border-color);
-            backdrop-filter: blur(10px);
-        }
-
-        .btn-outline:hover {
-            background: var(--primary-gradient);
-            color: white;
-            border-color: transparent;
-            transform: translateY(-1px);
             box-shadow: var(--shadow-md);
         }
 
-        /* Dropdown */
-        .dropdown {
+        .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 6px;
+            height: 6px;
+            background: var(--primary);
+            border-radius: 50%;
+        }
+
+        .navbar-item.has-dropdown {
             position: relative;
         }
 
-        .dropdown-toggle {
-            background: var(--bg-glass);
-            border: 2px solid var(--border-color);
-            backdrop-filter: blur(10px);
-        }
-
-        .dropdown-toggle:hover {
-            background: var(--primary-gradient);
-            color: white;
-            border-color: transparent;
-        }
-
-        .dropdown-menu {
+        .navbar-dropdown {
             position: absolute;
-            top: 100%;
+            top: calc(100% + 1rem);
             right: 0;
+            width: 220px;
             background: white;
-            border: none;
-            border-radius: var(--border-radius);
+            border-radius: var(--radius-xl);
             box-shadow: var(--shadow-xl);
-            min-width: 220px;
-            padding: 8px;
-            margin-top: 8px;
+            padding: 0.75rem;
             opacity: 0;
             visibility: hidden;
-            transform: translateY(-10px);
-            transition: var(--transition);
-            backdrop-filter: blur(20px);
+            transform: translateY(-10px) scale(0.95);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1001;
+            border: 1px solid var(--gray-200);
         }
 
-        .dropdown:hover .dropdown-menu {
+        .navbar-item.has-dropdown:hover .navbar-dropdown {
             opacity: 1;
             visibility: visible;
-            transform: translateY(0);
+            transform: translateY(0) scale(1);
         }
 
         .dropdown-item {
             display: flex;
             align-items: center;
-            padding: 12px 16px;
-            color: var(--text-primary);
+            gap: 0.75rem;
+            padding: 0.875rem 1rem;
+            color: var(--gray-700);
             text-decoration: none;
-            border-radius: var(--border-radius-sm);
             transition: var(--transition);
+            border-radius: var(--radius-md);
             font-weight: 500;
+            margin-bottom: 0.25rem;
         }
 
         .dropdown-item:hover {
-            background: var(--primary-gradient);
-            color: white;
+            background: var(--gray-100);
+            color: var(--primary);
             transform: translateX(4px);
         }
 
-        .dropdown-item.text-danger {
-            color: #e53e3e;
+        .dropdown-item i {
+            width: 16px;
+            text-align: center;
+            color: var(--gray-500);
+            transition: var(--transition);
         }
 
-        .dropdown-item.text-danger:hover {
-            background: linear-gradient(135deg, #fc8181 0%, #e53e3e 100%);
-            color: white;
+        .dropdown-item:hover i {
+            color: var(--primary);
         }
 
         .dropdown-divider {
             height: 1px;
-            background: var(--border-color);
-            margin: 8px 0;
-            border: none;
+            background: var(--gray-200);
+            margin: 0.5rem 0;
+            border-radius: 1px;
         }
 
-        /* Mobile Styles */
-        .d-md-none {
-            display: block;
-        }
-
-        .d-none {
-            display: none;
-        }
-
-        .collapse {
-            display: none;
-        }
-
-        .collapse.show {
-            display: block;
-        }
-
-        #mobileMenu {
-            background: white;
-            border-radius: var(--border-radius);
-            padding: 20px;
-            margin-top: 16px;
-            box-shadow: var(--shadow-lg);
-            border: 1px solid var(--border-color);
-        }
-
-        .flex-column {
-            flex-direction: column;
-        }
-
-        .w-100 {
-            width: 100%;
-        }
-
-        /* Breadcrumb */
-        .breadcrumb {
-            display: flex;
-            flex-wrap: wrap;
-            padding: 16px 20px;
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-sm);
-            margin: 0;
-            list-style: none;
-        }
-
-        .breadcrumb-item {
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            overflow: hidden;
             display: flex;
             align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border: 2px solid white;
+            box-shadow: var(--shadow-md);
+            position: relative;
         }
 
-        .breadcrumb-item + .breadcrumb-item::before {
-            content: '/';
-            color: var(--text-muted);
-            margin: 0 8px;
+        .user-avatar::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 50%;
+            opacity: 0;
+            transition: var(--transition);
+            z-index: -1;
         }
 
-        .breadcrumb-item a {
-            color: var(--primary-color);
-            text-decoration: none;
-            font-weight: 500;
+        .user-avatar:hover::before {
+            opacity: 0.3;
+        }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .user-avatar i {
+            font-size: 1.25rem;
+            color: white;
+        }
+
+        .navbar-burger {
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 32px;
+            height: 32px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: var(--radius-md);
             transition: var(--transition);
         }
 
-        .breadcrumb-item a:hover {
-            color: var(--secondary-color);
+        .navbar-burger:hover {
+            background: var(--gray-100);
         }
 
-        .breadcrumb-item.active {
-            color: var(--text-secondary);
+        .navbar-burger span {
+            width: 20px;
+            height: 2px;
+            background: var(--gray-700);
+            margin: 2px 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center;
+            border-radius: 1px;
         }
 
-        /* Page Header */
-        .page-header {
-            text-align: center;
-            padding: 60px 20px;
-            background: white;
-            border-radius: var(--border-radius-lg);
+        .navbar-burger.active span:nth-child(1) {
+            transform: translateY(6px) rotate(45deg);
+            background: var(--primary);
+        }
+
+        .navbar-burger.active span:nth-child(2) {
+            opacity: 0;
+            transform: scale(0);
+        }
+
+        .navbar-burger.active span:nth-child(3) {
+            transform: translateY(-6px) rotate(-45deg);
+            background: var(--primary);
+        }
+
+        /* Button Styles */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: var(--radius-lg);
+            font-weight: 600;
+            text-decoration: none;
+            transition: var(--transition);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            font-size: 0.875rem;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
             box-shadow: var(--shadow-lg);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--primary);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .buttons {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-top: 84px;
+            min-height: calc(100vh - 200px);
+        }
+
+        /* Footer Styles */
+        .footer {
+            background: linear-gradient(135deg, var(--gray-900), var(--gray-800));
+            color: white;
+            padding: 4rem 0 2rem;
             position: relative;
             overflow: hidden;
         }
 
-        .page-header::before {
+        .footer::before {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
-            bottom: 0;
-            background: var(--primary-gradient);
-            opacity: 0.05;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
         }
 
-        .page-header h1 {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 3rem;
-            font-weight: 700;
-            margin: 0 0 16px 0;
-            background: var(--primary-gradient);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            position: relative;
-        }
-
-        .page-header .lead {
-            font-size: 1.25rem;
-            color: var(--text-secondary);
-            margin: 0;
-            max-width: 600px;
+        .footer-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 3rem;
+            max-width: 1400px;
             margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+
+        .footer-brand {
+            display: flex;
+            align-items: center;
+            font-weight: 800;
+            font-size: 1.75rem;
+            margin-bottom: 1.5rem;
+            color: white;
+        }
+
+        .footer-brand i {
+            margin-right: 0.75rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .footer-description {
+            color: var(--gray-400);
+            margin-bottom: 2rem;
+            line-height: 1.7;
+            font-size: 1.05rem;
+        }
+
+        .footer-social {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .social-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-lg);
+            color: white;
+            text-decoration: none;
+            transition: var(--transition);
+            backdrop-filter: blur(10px);
+        }
+
+        .social-link:hover {
+            background: var(--primary);
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .footer-section h3 {
+            color: white;
+            margin-bottom: 1.5rem;
+            font-size: 1.25rem;
+            font-weight: 700;
             position: relative;
+        }
+
+        .footer-section h3::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            width: 30px;
+            height: 2px;
+            background: var(--primary);
+            border-radius: 1px;
+        }
+
+        .footer-links {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .footer-links li {
+            margin-bottom: 0.875rem;
+        }
+
+        .footer-links a {
+            color: var(--gray-400);
+            text-decoration: none;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0;
+        }
+
+        .footer-links a:hover {
+            color: white;
+            transform: translateX(4px);
+        }
+
+        .footer-links a::before {
+            content: '→';
+            opacity: 0;
+            transform: translateX(-10px);
+            transition: var(--transition);
+            color: var(--primary);
+        }
+
+        .footer-links a:hover::before {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .footer-newsletter {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .footer-newsletter .control {
+            flex: 1;
+        }
+
+        .footer-newsletter input {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 1px solid var(--gray-600);
+            border-radius: var(--radius-lg);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            backdrop-filter: blur(10px);
+            transition: var(--transition);
+        }
+
+        .footer-newsletter input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .footer-newsletter input::placeholder {
+            color: var(--gray-400);
+        }
+
+        .footer-newsletter button {
+            padding: 0.875rem 1.25rem;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            transition: var(--transition);
+            font-weight: 600;
+        }
+
+        .footer-newsletter button:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 3rem auto 0;
+            padding: 2rem 1.5rem 0;
+            border-top: 1px solid var(--gray-700);
+        }
+
+        .footer-copyright {
+            color: var(--gray-500);
+        }
+
+        .footer-payments {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .footer-payments i {
+            font-size: 1.5rem;
+            color: var(--gray-500);
+            transition: var(--transition);
+        }
+
+        .footer-payments i:hover {
+            color: var(--primary);
+            transform: scale(1.1);
+        }
+
+        /* Toast Container */
+        .toast-container {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            pointer-events: none;
+        }
+
+        .toast {
+            padding: 1.25rem 1.5rem;
+            border-radius: var(--radius-xl);
+            background: white;
+            box-shadow: var(--shadow-xl);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            animation: toastIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            max-width: 380px;
+            border-left: 4px solid;
+            backdrop-filter: blur(10px);
+            pointer-events: all;
+        }
+
+        .toast.toast-success {
+            border-left-color: var(--success);
+            background: rgba(16, 185, 129, 0.05);
+        }
+
+        .toast.toast-error {
+            border-left-color: var(--danger);
+            background: rgba(239, 68, 68, 0.05);
+        }
+
+        .toast.toast-warning {
+            border-left-color: var(--warning);
+            background: rgba(245, 158, 11, 0.05);
+        }
+
+        .toast.toast-info {
+            border-left-color: var(--info);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .toast-icon {
+            font-size: 1.375rem;
+            flex-shrink: 0;
+        }
+
+        .toast.toast-success .toast-icon {
+            color: var(--success);
+        }
+
+        .toast.toast-error .toast-icon {
+            color: var(--danger);
+        }
+
+        .toast.toast-warning .toast-icon {
+            color: var(--warning);
+        }
+
+        .toast.toast-info .toast-icon {
+            color: var(--info);
+        }
+
+        .toast-message {
+            flex: 1;
+            color: var(--gray-700);
+            font-weight: 500;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: var(--gray-500);
+            cursor: pointer;
+            padding: 0.375rem;
+            border-radius: var(--radius);
+            transition: var(--transition);
+            flex-shrink: 0;
+        }
+
+        .toast-close:hover {
+            color: var(--gray-700);
+            background: var(--gray-100);
+            transform: scale(1.1);
+        }
+
+        @keyframes toastIn {
+            from {
+                transform: translateX(100%) scale(0.9);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* Back to Top Button */
+        .back-to-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            box-shadow: var(--shadow-lg);
+            cursor: pointer;
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px) scale(0.8);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+
+        .back-to-top:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .back-to-top::before {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 50%;
+            opacity: 0;
+            transition: var(--transition);
+            z-index: -1;
+        }
+
+        .back-to-top:hover::before {
+            opacity: 0.3;
+        }
+
+        /* Loading Spinner */
+        .loading-spinner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            backdrop-filter: blur(8px);
+        }
+
+        .spinner-icon {
+            font-size: 3rem;
+            color: var(--primary);
+            margin-bottom: 1.5rem;
+            animation: spin 1s linear infinite;
+        }
+
+        .spinner-content p {
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin: 0;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Accessibility */
+        @media (prefers-reduced-motion: reduce) {
+
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Focus styles for accessibility */
+        .nav-link:focus,
+        .btn:focus,
+        .dropdown-item:focus {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+
+        /* High contrast mode support */
+        @media (prefers-contrast: high) {
+            .navbar {
+                background: white;
+                border-bottom: 2px solid black;
+            }
+
+            .nav-link {
+                color: black;
+            }
+
+            .nav-link:hover,
+            .nav-link.active {
+                background: black;
+                color: white;
+            }
         }
 
         /* Responsive Design */
-        @media (min-width: 768px) {
-            .d-md-flex {
-                display: flex !important;
+        @media (max-width: 1200px) {
+            .navbar-content {
+                padding: 1rem;
             }
-            
-            .d-md-none {
-                display: none !important;
+
+            .footer-content {
+                max-width: 1000px;
+                grid-template-columns: 1fr 1fr 1fr;
+                gap: 2rem;
             }
-            
-            .d-none {
-                display: block;
+
+            .footer-content .footer-section:first-child {
+                grid-column: 1 / -1;
             }
         }
 
-        @media (max-width: 767px) {
-            .container {
-                padding: 0 16px;
+        @media (max-width: 1024px) {
+            .navbar-menu {
+                gap: 1rem;
             }
-            
-            .navbar .container {
-                padding: 12px 16px;
+
+            .navbar-start {
+                gap: 1rem;
             }
-            
-            .navbar-brand {
-                font-size: 1.25rem;
+
+            .footer-content {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 2rem;
             }
-            
-            .page-header h1 {
-                font-size: 2rem;
+
+            .buttons {
+                flex-direction: column;
+                gap: 0.5rem;
             }
-            
-            .page-header .lead {
-                font-size: 1.1rem;
-            }
-            
-            .page-header {
-                padding: 40px 16px;
-            }
-            
+
             .btn {
-                padding: 10px 20px;
-                font-size: 0.9rem;
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .navbar-content {
+                padding: 0.75rem 1rem;
+            }
+
+            .navbar-menu {
+                position: fixed;
+                top: 74px;
+                left: 0;
+                width: 100%;
+                background: rgba(255, 255, 255, 0.98);
+                backdrop-filter: blur(20px);
+                flex-direction: column;
+                padding: 2rem 1.5rem;
+                box-shadow: var(--shadow-xl);
+                transform: translateY(-100%);
+                opacity: 0;
+                visibility: hidden;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                border-bottom: 1px solid var(--gray-200);
+            }
+
+            .navbar-menu.active {
+                transform: translateY(0);
+                opacity: 1;
+                visibility: visible;
+            }
+
+            .navbar-start {
+                flex-direction: column;
+                width: 100%;
+                align-items: stretch;
+                gap: 0.5rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .navbar-end {
+                flex-direction: column;
+                width: 100%;
+                align-items: stretch;
+                gap: 1rem;
+            }
+
+            .nav-link {
+                justify-content: flex-start;
+                padding: 1rem;
+                border-radius: var(--radius-lg);
+                font-size: 1rem;
+            }
+
+            .navbar-burger {
+                display: flex;
+            }
+
+            .navbar-dropdown {
+                position: static;
+                width: 100%;
+                box-shadow: none;
+                border: 1px solid var(--gray-200);
+                margin-top: 0.5rem;
+                transform: none;
+                opacity: 1;
+                visibility: visible;
+            }
+
+            .main-content {
+                margin-top: 74px;
+            }
+
+            .footer-content {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+                padding: 0 1rem;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                gap: 1.5rem;
+                text-align: center;
+                padding: 2rem 1rem 0;
+            }
+
+            .footer-newsletter {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .toast-container {
+                left: 1rem;
+                right: 1rem;
+                align-items: center;
+                top: 90px;
+            }
+
+            .toast {
+                max-width: 100%;
+                margin: 0 auto;
+            }
+
+            .back-to-top {
+                bottom: 1.5rem;
+                right: 1.5rem;
+                width: 48px;
+                height: 48px;
             }
         }
 
         @media (max-width: 480px) {
-            .page-header h1 {
-                font-size: 1.75rem;
+            .navbar-brand {
+                font-size: 1.25rem;
             }
-            
-            .navbar-brand span {
-                display: none;
+
+            .navbar-brand i {
+                font-size: 1.5rem;
+                margin-right: 0.5rem;
             }
-            
-            .nav-link {
-                padding: 12px 16px;
+
+            .navbar-content {
+                padding: 0.5rem 1rem;
             }
-        }
 
-        /* Animation and Interactions */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
+            .footer-content {
+                padding: 0 0.75rem;
             }
-            to {
-                opacity: 1;
-                transform: translateY(0);
+
+            .footer-bottom {
+                padding: 2rem 0.75rem 0;
             }
-        }
 
-        .page-header {
-            animation: fadeInUp 0.6s ease-out;
-        }
+            .main-content {
+                margin-top: 68px;
+            }
 
-        .navbar {
-            animation: fadeInUp 0.4s ease-out;
-        }
+            .btn {
+                padding: 0.625rem 1.25rem;
+                font-size: 0.8125rem;
+            }
 
-        /* Focus States for Accessibility */
-        .btn:focus,
-        .nav-link:focus,
-        .dropdown-toggle:focus {
-            outline: 3px solid rgba(102, 126, 234, 0.3);
-            outline-offset: 2px;
-        }
-
-        /* High Contrast Mode Support */
-        @media (prefers-contrast: high) {
-            :root {
-                --primary-gradient: linear-gradient(135deg, #000 0%, #333 100%);
-                --text-primary: #000;
-                --border-color: #000;
+            .toast {
+                padding: 1rem;
+                font-size: 0.875rem;
             }
         }
 
-        /* Reduced Motion Support */
-        @media (prefers-reduced-motion: reduce) {
-            * {
-                transition: none !important;
-                animation: none !important;
-            }
-        }
-
-        /* Dark Mode Preparation */
+        /* Dark mode support */
         @media (prefers-color-scheme: dark) {
             :root {
-                --text-primary: #f7fafc;
-                --text-secondary: #e2e8f0;
-                --text-muted: #a0aec0;
-                --border-color: #2d3748;
-                --bg-glass: rgba(26, 32, 44, 0.95);
+                --gray-50: #1f2937;
+                --gray-100: #374151;
+                --gray-200: #4b5563;
+                --gray-300: #6b7280;
+                --gray-700: #d1d5db;
+                --gray-800: #e5e7eb;
+                --gray-900: #f9fafb;
             }
-            
+
             body {
-                background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+                background: #111827;
+                color: #f9fafb;
             }
-            
+
             .navbar {
-                border-bottom-color: rgba(255, 255, 255, 0.1);
+                background: rgba(17, 24, 39, 0.95);
+                border-bottom-color: rgba(99, 102, 241, 0.2);
             }
-            
-            .page-header,
-            .breadcrumb,
-            #mobileMenu {
-                background: #2d3748;
-                color: var(--text-primary);
+
+            .navbar.scrolled {
+                background: rgba(17, 24, 39, 0.98);
             }
-            
-            .dropdown-menu {
-                background: #2d3748;
+
+            .navbar-dropdown {
+                background: #1f2937;
+                border-color: #374151;
+            }
+
+            .toast {
+                background: #1f2937;
+                color: #f9fafb;
+            }
+
+            .footer-newsletter input {
+                background: rgba(17, 24, 39, 0.5);
+                border-color: #374151;
+                color: #f9fafb;
+            }
+        }
+
+        /* Print styles */
+        @print {
+
+            .navbar,
+            .footer,
+            .toast-container,
+            .back-to-top,
+            .loading-spinner {
+                display: none !important;
+            }
+
+            .main-content {
+                margin-top: 0;
+            }
+
+            body {
+                background: white;
+                color: black;
             }
         }
     </style>
-    
-    <!-- Favicon -->
-    <link rel="apple-touch-icon" sizes="180x180" href="<?php echo $base_url; ?>assets/images/favicon/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="<?php echo $base_url; ?>assets/images/favicon/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="<?php echo $base_url; ?>assets/images/favicon/favicon-16x16.png">
-    <link rel="manifest" href="<?php echo $base_url; ?>assets/images/favicon/site.webmanifest">
-    
-    <!-- Structured Data -->
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "WebApplication",
-        "name": "VR Tour Application",
-        "description": "Immerse yourself in stunning 360° virtual tours of museums, landmarks, and exotic locations.",
-        "applicationCategory": "MultimediaApplication",
-        "operatingSystem": "Web Browser"
-    }
-    </script>
-    
-    <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#6366f1">
-    <meta name="description" content="Explore immersive virtual reality tours of museums, landmarks, and exotic locations.">
+
+
 </head>
-<body>
-    <!-- Skip to main content -->
-    <a href="#main-content" class="skip-link">Skip to main content</a>
-    
+
+<body class="<?php echo trim($body_class); ?>">
+    <!-- Loading Spinner -->
+    <div id="loading-spinner" class="loading-spinner" style="display: none;">
+        <div class="spinner-content">
+            <i class="fas fa-spinner spinner-icon"></i>
+            <p>Loading VR Experience...</p>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Back to Top Button -->
+    <button id="back-to-top" class="back-to-top" aria-label="Back to top">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
     <!-- Navigation -->
-    <nav class="navbar">
-        <div class="container">
-            <div class="d-flex align-items-center justify-content-between w-100">
-                <!-- Logo -->
-                <a class="navbar-brand" href="<?php echo $base_url; ?>index.php">
-                    <i class="fas fa-vr-cardboard me-2"></i>
-                    <span>VR Tours</span>
-                </a>
+    <nav class="navbar" id="navbar" role="navigation" aria-label="Main navigation">
+        <div class="navbar-content">
+            <a href="<?php echo BASE_URL; ?>" class="navbar-brand" aria-label="VR Tours - Home">
+                <i class="fas fa-vr-cardboard" aria-hidden="true"></i>
+                <span>VR Tours</span>
+            </a>
 
-                <!-- Desktop Navigation -->
-                <div class="d-none d-md-flex align-items-center gap-4">
-                    <a class="nav-link" href="<?php echo $base_url; ?>tours.php">
-                        <i class="fas fa-compass me-1"></i>Explore
+            <div class="navbar-menu" id="navbar-menu">
+                <div class="navbar-start">
+                    <a href="<?php echo BASE_URL; ?>"
+                        class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'active' : ''; ?>"
+                        aria-current="<?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'page' : 'false'; ?>">
+                        <i class="fas fa-home" aria-hidden="true"></i>
+                        <span>Home</span>
                     </a>
-                    <a class="nav-link" href="<?php echo $base_url; ?>categories.php">
-                        <i class="fas fa-tag me-1"></i>Categories
+                    <a href="tours.php"
+                        class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'tours.php' ? 'active' : ''; ?>"
+                        aria-current="<?php echo basename($_SERVER['PHP_SELF']) == 'tours.php' ? 'page' : 'false'; ?>">
+                        <i class="fas fa-compass" aria-hidden="true"></i>
+                        <span>Browse Tours</span>
                     </a>
-                    
+                    <a href="categories.php"
+                        class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'categories.php' ? 'active' : ''; ?>"
+                        aria-current="<?php echo basename($_SERVER['PHP_SELF']) == 'categories.php' ? 'page' : 'false'; ?>">
+                        <i class="fas fa-tags" aria-hidden="true"></i>
+                        <span>Categories</span>
+                    </a>
+                </div>
+
+                <div class="navbar-end">
                     <?php if (isUserLoggedIn()): ?>
-                    <div class="dropdown">
-                        <button class="btn btn-outline dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user-circle me-1"></i>
-                            <?php echo htmlspecialchars($current_user['username']); ?>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="<?php echo $base_url; ?>user/dashboard.php">
-                                <i class="fas fa-tachometer-alt me-2"></i>Dashboard
-                            </a></li>
-                            <li><a class="dropdown-item" href="<?php echo $base_url; ?>user/favorites.php">
-                                <i class="fas fa-heart me-2"></i>Favorites
-                            </a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="<?php echo $base_url; ?>user/profile.php">
-                                <i class="fas fa-user me-2"></i>Profile
-                            </a></li>
-                            <li><a class="dropdown-item" href="<?php echo $base_url; ?>user/settings.php">
-                                <i class="fas fa-cog me-2"></i>Settings
-                            </a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item text-danger" href="<?php echo $base_url; ?>logout.php">
-                                <i class="fas fa-sign-out-alt me-2"></i>Logout
-                            </a></li>
-                        </ul>
+                    <div class="navbar-item has-dropdown">
+                        <a class="nav-link" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">
+                            <span class="user-avatar">
+                                <?php if ($user_data['avatar']): ?>
+                                <img src="<?php echo BASE_URL; ?>assets/images/uploads/<?php echo $user_data['avatar']; ?>"
+                                    alt="<?php echo htmlspecialchars($user_data['username']); ?>" loading="lazy">
+                                <?php else: ?>
+                                <i class="fas fa-user-circle" aria-hidden="true"></i>
+                                <?php endif; ?>
+                            </span>
+                            <span>
+                                <?php echo htmlspecialchars($user_data['username']); ?>
+                            </span>
+                        </a>
+                        <div class="navbar-dropdown" role="menu">
+                            <a href="user/dashboard.php" class="dropdown-item" role="menuitem">
+                                <i class="fas fa-tachometer-alt" aria-hidden="true"></i> Dashboard
+                            </a>
+                            <a href="user/profile.php" class="dropdown-item" role="menuitem">
+                                <i class="fas fa-user" aria-hidden="true"></i> Profile
+                            </a>
+                            <a href="user/favorites.php" class="dropdown-item" role="menuitem">
+                                <i class="fas fa-heart" aria-hidden="true"></i> Favorites
+                            </a>
+                            <hr class="dropdown-divider" role="separator">
+                            <a href="logout.php" class="dropdown-item" role="menuitem">
+                                <i class="fas fa-sign-out-alt" aria-hidden="true"></i> Logout
+                            </a>
+                        </div>
                     </div>
                     <?php else: ?>
-                    <div class="d-flex gap-2">
-                        <a href="<?php echo $base_url; ?>login.php" class="btn btn-outline">Login</a>
-                        <a href="<?php echo $base_url; ?>register.php" class="btn btn-primary">Sign Up</a>
+                    <div class="navbar-item">
+                        <div class="buttons">
+                            <a href="register.php" class="btn btn-outline">
+                                <i class="fas fa-user-plus" aria-hidden="true"></i>
+                                <span>Sign Up</span>
+                            </a>
+                            <a href="login.php" class="btn btn-primary">
+                                <i class="fas fa-sign-in-alt" aria-hidden="true"></i>
+                                <span>Login</span>
+                            </a>
+                        </div>
                     </div>
                     <?php endif; ?>
                 </div>
-
-                <!-- Mobile menu button -->
-                <button class="d-md-none btn btn-outline" type="button" onclick="toggleMobileMenu()">
-                    <i class="fas fa-bars"></i>
-                </button>
             </div>
 
-            <!-- Mobile Navigation -->
-            <div class="collapse d-md-none mt-4" id="mobileMenu">
-                <div class="d-flex flex-column gap-2">
-                    <a class="nav-link" href="<?php echo $base_url; ?>tours.php">
-                        <i class="fas fa-compass me-2"></i>Explore Tours
-                    </a>
-                    <a class="nav-link" href="<?php echo $base_url; ?>categories.php">
-                        <i class="fas fa-tag me-2"></i>Categories
-                    </a>
-                    
-                    <?php if (isUserLoggedIn()): ?>
-                    <hr>
-                    <a class="nav-link" href="<?php echo $base_url; ?>user/dashboard.php">
-                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
-                    </a>
-                    <a class="nav-link" href="<?php echo $base_url; ?>user/favorites.php">
-                        <i class="fas fa-heart me-2"></i>Favorites
-                    </a>
-                    <a class="nav-link" href="<?php echo $base_url; ?>user/profile.php">
-                        <i class="fas fa-user me-2"></i>Profile
-                    </a>
-                    <a class="nav-link" href="<?php echo $base_url; ?>user/settings.php">
-                        <i class="fas fa-cog me-2"></i>Settings
-                    </a>
-                    <a class="nav-link text-danger" href="<?php echo $base_url; ?>logout.php">
-                        <i class="fas fa-sign-out-alt me-2"></i>Logout
-                    </a>
-                    <?php else: ?>
-                    <hr>
-                    <a href="<?php echo $base_url; ?>login.php" class="btn btn-outline w-100">Login</a>
-                    <a href="<?php echo $base_url; ?>register.php" class="btn btn-primary w-100">Sign Up</a>
-                    <?php endif; ?>
-                </div>
-            </div>
+            <button class="navbar-burger" id="navbar-burger" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+            </button>
         </div>
     </nav>
 
     <!-- Main Content -->
-    <main id="main-content" class="container">
-        <!-- Breadcrumb -->
-        <?php if (isset($breadcrumbs)): ?>
-        <nav aria-label="breadcrumb" class="mb-6">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="<?php echo $base_url; ?>index.php">Home</a></li>
-                <?php foreach ($breadcrumbs as $crumb): ?>
-                    <?php if (isset($crumb['url'])): ?>
-                        <li class="breadcrumb-item"><a href="<?php echo $crumb['url']; ?>"><?php echo $crumb['title']; ?></a></li>
-                    <?php else: ?>
-                        <li class="breadcrumb-item active"><?php echo $crumb['title']; ?></li>
-                    <?php endif; ?>
-                <?php endforeach; ?>
-            </ol>
-        </nav>
-        <?php endif; ?>
-
-        <!-- Page Header -->
-        <?php if (isset($show_page_header) && $show_page_header): ?>
-        <div class="page-header mb-6">
-            <h1><?php echo $page_title; ?></h1>
-            <?php if (isset($page_subtitle)): ?>
-                <p class="lead"><?php echo $page_subtitle; ?></p>
-            <?php endif; ?>
-        </div>
-        <?php endif; ?>
-
-    <script>
-        // Mobile menu toggle functionality
-        function toggleMobileMenu() {
-            const mobileMenu = document.getElementById('mobileMenu');
-            if (mobileMenu.classList.contains('show')) {
-                mobileMenu.classList.remove('show');
-            } else {
-                mobileMenu.classList.add('show');
-            }
-        }
-
-        // Close mobile menu when clicking outside
-        document.addEventListener('click', function(event) {
-            const mobileMenu = document.getElementById('mobileMenu');
-            const mobileButton = event.target.closest('.d-md-none');
-            
-            if (!mobileButton && !mobileMenu.contains(event.target)) {
-                mobileMenu.classList.remove('show');
-            }
-        });
-
-        // Smooth scroll for skip link
-        document.querySelector('.skip-link').addEventListener('click', function(e) {
-            e.preventDefault();
-            document.getElementById('main-content').scrollIntoView({
-                behavior: 'smooth'
-            });
-        });
-    </script>
+    <main class="main-content" role="main">

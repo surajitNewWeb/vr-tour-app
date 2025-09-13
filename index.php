@@ -4,8 +4,8 @@ require_once 'includes/config.php';
 require_once 'includes/user-auth.php';
 require_once 'includes/database.php';
 
-// Get featured tours
-$featured_tours = $pdo->query("
+// Get featured tours using the correct Database class methods
+$stmt = $pdo->prepare("
     SELECT t.*, 
            (SELECT COUNT(*) FROM scenes s WHERE s.tour_id = t.id) as scene_count,
            (SELECT AVG(rating) FROM reviews r WHERE r.tour_id = t.id AND r.approved = 1) as avg_rating
@@ -13,10 +13,12 @@ $featured_tours = $pdo->query("
     WHERE t.published = 1 AND t.featured = 1
     ORDER BY t.created_at DESC 
     LIMIT 6
-")->fetchAll();
+");
+$stmt->execute();
+$featured_tours = $stmt->fetchAll();
 
 // Get recent tours
-$recent_tours = $pdo->query("
+$stmt = $pdo->prepare("
     SELECT t.*, 
            (SELECT COUNT(*) FROM scenes s WHERE s.tour_id = t.id) as scene_count,
            (SELECT AVG(rating) FROM reviews r WHERE r.tour_id = t.id AND r.approved = 1) as avg_rating
@@ -24,119 +26,1318 @@ $recent_tours = $pdo->query("
     WHERE t.published = 1
     ORDER BY t.created_at DESC 
     LIMIT 6
-")->fetchAll();
+");
+$stmt->execute();
+$recent_tours = $stmt->fetchAll();
 
 // Get tour statistics
-$stats = $pdo->query("
+$stmt = $pdo->prepare("
     SELECT 
         (SELECT COUNT(*) FROM tours WHERE published = 1) as total_tours,
         (SELECT COUNT(*) FROM scenes) as total_scenes,
-        (SELECT COUNT(*) FROM users) as total_users
-")->fetch();
+        (SELECT COUNT(*) FROM users) as total_users,
+        (SELECT COUNT(*) FROM favorites) as total_favorites
+");
+$stmt->execute();
+$stats = $stmt->fetch();
 
 $page_title = "Explore Immersive VR Tours";
 $show_page_header = false;
+$body_class = isUserLoggedIn() ? 'user-logged-in' : 'user-guest';
+
 include 'includes/user-header.php';
 ?>
 
 <style>
-    /* Homepage Styles */
-    :root {
-        --hero-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #667eea 100%);
-        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-        --dark-gradient: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-    }
+/* Enhanced Homepage Styles */
+:root {
+    --hero-gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --hero-gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --hero-gradient-3: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --card-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    --card-shadow-hover: 0 30px 60px rgba(0,0,0,0.15);
+    --glow-primary: 0 0 30px rgba(99, 102, 241, 0.3);
+    --glow-secondary: 0 0 30px rgba(236, 72, 153, 0.3);
+}
 
-    /* Hero Section */
-    .hero {
-        background: var(--hero-gradient);
-        background-size: 400% 400%;
-        animation: gradientShift 15s ease infinite;
-        padding: 120px 0;
-        position: relative;
-        overflow: hidden;
-        color: white;
-    }
+/* Hero Section */
+.hero {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    position: relative;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
 
-    .hero::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Cpath d='m36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") repeat;
-        opacity: 0.3;
-    }
+.hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%);
+    animation: heroGlow 8s ease-in-out infinite alternate;
+}
 
-    @keyframes gradientShift {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
+@keyframes heroGlow {
+    0% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
 
+.hero-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: center;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+    position: relative;
+    z-index: 2;
+}
+
+.hero-text {
+    color: white;
+}
+
+.hero-title {
+    font-size: 4rem;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 2rem;
+    background: linear-gradient(135deg, #ffffff, #f0f0f0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: titleFloat 6s ease-in-out infinite alternate;
+}
+
+@keyframes titleFloat {
+    0% { transform: translateY(0px); }
+    100% { transform: translateY(-10px); }
+}
+
+.hero-description {
+    font-size: 1.25rem;
+    line-height: 1.8;
+    margin-bottom: 3rem;
+    opacity: 0.9;
+    max-width: 500px;
+}
+
+.hero-actions {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.btn-lg {
+    padding: 1rem 2.5rem;
+    font-size: 1.1rem;
+    border-radius: 50px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-lg::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.btn-lg:hover::before {
+    left: 100%;
+}
+
+.btn-outline-light {
+    background: transparent;
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+}
+
+.btn-outline-light:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(255, 255, 255, 0.2);
+}
+
+/* VR Headset Visualization */
+.hero-visual {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.vr-headset {
+    width: 300px;
+    height: 180px;
+    position: relative;
+    animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0px) rotateY(0deg); }
+    50% { transform: translateY(-20px) rotateY(5deg); }
+}
+
+.vr-frame {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #2d3748, #4a5568);
+    border-radius: 20px;
+    position: relative;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+
+.vr-frame::before {
+    content: '';
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 15px;
+    opacity: 0.8;
+}
+
+.vr-lens {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #00d4ff, #0099cc);
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    box-shadow: inset 0 5px 20px rgba(0,0,0,0.3), 0 0 20px rgba(0, 212, 255, 0.5);
+    animation: lensGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes lensGlow {
+    0% { box-shadow: inset 0 5px 20px rgba(0,0,0,0.3), 0 0 20px rgba(0, 212, 255, 0.5); }
+    100% { box-shadow: inset 0 5px 20px rgba(0,0,0,0.3), 0 0 30px rgba(0, 212, 255, 0.8); }
+}
+
+.vr-lens-left {
+    left: 40px;
+}
+
+.vr-lens-right {
+    right: 40px;
+}
+
+.floating-elements {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.floating-element {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: white;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    animation: floatElements 8s ease-in-out infinite;
+}
+
+.element-1 {
+    top: 20%;
+    left: 10%;
+    animation-delay: 0s;
+}
+
+.element-2 {
+    top: 60%;
+    right: 10%;
+    animation-delay: 2s;
+}
+
+.element-3 {
+    bottom: 20%;
+    left: 20%;
+    animation-delay: 4s;
+}
+
+@keyframes floatElements {
+    0%, 100% { transform: translateY(0px) scale(1); }
+    33% { transform: translateY(-20px) scale(1.1); }
+    66% { transform: translateY(10px) scale(0.9); }
+}
+
+/* Stats Section */
+.stats-section {
+    padding: 6rem 0;
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    position: relative;
+}
+
+.stats-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 3rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 2rem;
+    background: white;
+    border-radius: 20px;
+    box-shadow: var(--card-shadow);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+}
+
+.stat-item:hover {
+    transform: translateY(-10px);
+    box-shadow: var(--card-shadow-hover);
+}
+
+.stat-number {
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.stat-label {
+    font-size: 1.1rem;
+    color: var(--gray-600);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Section Styles */
+.featured-section,
+.recent-section {
+    padding: 8rem 0;
+    position: relative;
+}
+
+.featured-section {
+    background: linear-gradient(135deg, #ffffff, #f8fafc);
+}
+
+.recent-section {
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+}
+
+.section-header {
+    text-align: center;
+    margin-bottom: 4rem;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.section-header h2 {
+    font-size: 3rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, var(--gray-900), var(--gray-700));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.section-header p {
+    font-size: 1.25rem;
+    color: var(--gray-600);
+    line-height: 1.8;
+}
+
+/* Tours Grid */
+.tours-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 2.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+.tour-card {
+    background: white;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    group: hover;
+}
+
+.tour-card:hover {
+    transform: translateY(-15px) scale(1.02);
+    box-shadow: var(--card-shadow-hover);
+}
+
+.tour-image {
+    position: relative;
+    height: 250px;
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--gray-200), var(--gray-300));
+}
+
+.tour-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tour-card:hover .tour-image img {
+    transform: scale(1.1);
+}
+
+.tour-image-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--gray-500);
+    font-size: 3rem;
+    background: linear-gradient(135deg, var(--gray-100), var(--gray-200));
+}
+
+.tour-badges {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    z-index: 3;
+}
+
+.badge {
+    padding: 0.5rem 1rem;
+    border-radius: 50px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    backdrop-filter: blur(10px);
+}
+
+.badge-primary {
+    background: rgba(99, 102, 241, 0.9);
+    color: white;
+    box-shadow: var(--glow-primary);
+}
+
+.badge-secondary {
+    background: rgba(107, 114, 128, 0.9);
+    color: white;
+}
+
+.badge-success {
+    background: rgba(16, 185, 129, 0.9);
+    color: white;
+}
+
+.tour-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(5px);
+}
+
+.tour-card:hover .tour-overlay {
+    opacity: 1;
+}
+
+.tour-overlay .btn {
+    transform: translateY(20px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 50px;
+    padding: 1rem 2rem;
+    font-weight: 600;
+}
+
+.tour-card:hover .tour-overlay .btn {
+    transform: translateY(0);
+}
+
+.tour-content {
+    padding: 2rem;
+}
+
+.tour-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--gray-900);
+    line-height: 1.3;
+}
+
+.tour-description {
+    color: var(--gray-600);
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+    font-size: 1rem;
+}
+
+.tour-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.tour-rating {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tour-rating .fas.fa-star {
+    color: var(--gray-300);
+    font-size: 1rem;
+    transition: color 0.2s;
+}
+
+.tour-rating .fas.fa-star.active {
+    color: #fbbf24;
+}
+
+.tour-rating span {
+    font-size: 0.875rem;
+    color: var(--gray-600);
+    margin-left: 0.5rem;
+}
+
+.tour-date {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--gray-600);
+    font-size: 0.875rem;
+}
+
+/* Empty State */
+.empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--gray-600);
+}
+
+.empty-state i {
+    font-size: 4rem;
+    margin-bottom: 2rem;
+    color: var(--gray-400);
+}
+
+.empty-state h3 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    color: var(--gray-700);
+}
+
+.section-footer {
+    text-align: center;
+    margin-top: 4rem;
+}
+
+/* Features Section */
+.features-section {
+    padding: 8rem 0;
+    background: linear-gradient(135deg, var(--gray-900), var(--gray-800));
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.features-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(236, 72, 153, 0.1) 0%, transparent 50%);
+}
+
+.features-section .section-header h2,
+.features-section .section-header p {
+    color: white;
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 3rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+.feature-item {
+    text-align: center;
+    padding: 3rem 2rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 24px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.feature-item::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+    transform: rotate(45deg);
+    transition: all 0.5s;
+    opacity: 0;
+}
+
+.feature-item:hover::before {
+    opacity: 1;
+    animation: shimmer 1.5s ease-in-out;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+    100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+.feature-item:hover {
+    transform: translateY(-10px);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.feature-icon {
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 2rem;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: white;
+    box-shadow: var(--glow-primary);
+    position: relative;
+    z-index: 2;
+}
+
+.feature-item h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: white;
+}
+
+.feature-item p {
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.6;
+    font-size: 1rem;
+}
+
+/* CTA Section */
+.cta-section {
+    padding: 8rem 0;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.cta-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+    animation: ctaGlow 10s ease-in-out infinite alternate;
+}
+
+@keyframes ctaGlow {
+    0% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.cta-content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    position: relative;
+    z-index: 2;
+}
+
+.cta-content h2 {
+    font-size: 3.5rem;
+    font-weight: 800;
+    margin-bottom: 1.5rem;
+    background: linear-gradient(135deg, #ffffff, #f0f0f0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.cta-content p {
+    font-size: 1.25rem;
+    margin-bottom: 3rem;
+    opacity: 0.9;
+    line-height: 1.8;
+}
+
+.cta-actions {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
     .hero-content {
-        position: relative;
-        z-index: 2;
-        animation: fadeInUp 1s ease-out;
+        grid-template-columns: 1fr;
+        gap: 3rem;
+        text-align: center;
     }
-
-    .hero-visual {
-        position: relative;
-        z-index: 2;
-        animation: fadeInRight 1s ease-out 0.3s both;
+    
+    .hero-title {
+        font-size: 3rem;
     }
-
-    .hero-visual .fa-vr-cardboard {
-        font-size: 8rem;
-        opacity: 0.2;
-        margin-bottom: 2rem;
+    
+    .tours-grid {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
     }
-
-    .floating-elements {
-        position: relative;
+    
+    .features-grid {
+        grid-template-columns: 1fr;
+        gap: 2rem;
     }
+}
 
-    .floating-element {
-        position: absolute;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 50%;
+@media (max-width: 768px) {
+    .hero {
+        min-height: 80vh;
+    }
+    
+    .hero-title {
+        font-size: 2.5rem;
+    }
+    
+    .hero-description {
+        font-size: 1.1rem;
+    }
+    
+    .hero-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .btn-lg {
+        width: 100%;
+        max-width: 300px;
+    }
+    
+    .vr-headset {
+        width: 250px;
+        height: 150px;
+    }
+    
+    .vr-lens {
         width: 60px;
         height: 60px;
-        display: flex;
+    }
+    
+    .vr-lens-left {
+        left: 30px;
+    }
+    
+    .vr-lens-right {
+        right: 30px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 2rem;
+    }
+    
+    .tours-grid {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        padding: 0 1rem;
+    }
+    
+    .section-header h2 {
+        font-size: 2.5rem;
+    }
+    
+    .cta-content h2 {
+        font-size: 2.5rem;
+    }
+    
+    .cta-actions {
+        flex-direction: column;
         align-items: center;
-        justify-content: center;
-        font-size: 1.5rem;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        animation: float 3s ease-in-out infinite;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-title {
+        font-size: 2rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .stat-number {
+        font-size: 2.5rem;
+    }
+    
+    .section-header h2 {
+        font-size: 2rem;
+    }
+    
+    .cta-content h2 {
+        font-size: 2rem;
+    }
+    
+    .floating-element {
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+    }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    .tour-card {
+        border: 2px solid var(--gray-900);
+    }
+    
+    .btn {
+        border: 2px solid currentColor;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .featured-section {
+        background: linear-gradient(135deg, #1f2937, #111827);
+    }
+    
+    .recent-section {
+        background: linear-gradient(135deg, #111827, #0f172a);
+    }
+    
+    .tour-card {
+        background: #1f2937;
+        border: 1px solid #374151;
+    }
+    
+    .tour-title {
+        color: #f9fafb;
+    }
+    
+    .tour-description {
+        color: #d1d5db;
+    }
+}
+</style>
+
+<!-- Hero Section -->
+<section class="hero">
+    <div class="container">
+        <div class="hero-content">
+            <div class="hero-text">
+                <h1 class="hero-title">Step Into Another World</h1>
+                <p class="hero-description">Experience breathtaking 360° virtual tours of museums, landmarks, and hidden gems from around the globe.</p>
+                <div class="hero-actions">
+                    <a href="tours.php" class="btn btn-primary btn-lg">
+                        <i class="fas fa-compass me-2"></i>Explore Tours
+                    </a>
+                    <?php if (!isUserLoggedIn()): ?>
+                        <a href="register.php" class="btn btn-outline-light btn-lg">
+                            <i class="fas fa-user-plus me-2"></i>Get Started
+                        </a>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div class="vr-headset">
+                    <div class="vr-lens vr-lens-left"></div>
+                    <div class="vr-lens vr-lens-right"></div>
+                    <div class="vr-frame"></div>
+                </div>
+                <div class="floating-elements">
+                    <div class="floating-element element-1">
+                        <i class="fas fa-mountain"></i>
+                    </div>
+                    <div class="floating-element element-2">
+                        <i class="fas fa-landmark"></i>
+                    </div>
+                    <div class="floating-element element-3">
+                        <i class="fas fa-umbrella-beach"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Section -->
+<section class="stats-section">
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number" id="stat-tours"><?= $stats['total_tours'] ?></div>
+                <div class="stat-label">VR Tours</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="stat-scenes"><?= $stats['total_scenes'] ?></div>
+                <div class="stat-label">360° Scenes</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="stat-users"><?= $stats['total_users'] ?></div>
+                <div class="stat-label">Explorers</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="stat-favorites"><?= $stats['total_favorites'] ?></div>
+                <div class="stat-label">Favorites</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Featured Tours -->
+<section class="featured-section">
+    <div class="container">
+        <div class="section-header">
+            <h2>Featured Tours</h2>
+            <p>Discover our most popular virtual experiences</p>
+        </div>
+        
+        <div class="tours-grid">
+            <?php if (empty($featured_tours)): ?>
+                <div class="empty-state">
+                    <i class="fas fa-compass"></i>
+                    <h3>No Featured Tours Yet</h3>
+                    <p>Check back soon for amazing virtual tours!</p>
+                </div>
+            <?php else: ?>
+                <?php foreach ($featured_tours as $tour): ?>
+                    <div class="tour-card">
+                        <div class="tour-image">
+                            <?php if ($tour['thumbnail']): ?>
+                                <img src="assets/images/uploads/<?= htmlspecialchars($tour['thumbnail']) ?>" alt="<?= htmlspecialchars($tour['title']) ?>" loading="lazy">
+                            <?php else: ?>
+                                <div class="tour-image-placeholder">
+                                    <i class="fas fa-image"></i>
+                                </div>
+                            <?php endif; ?>
+                            <div class="tour-badges">
+                                <span class="badge badge-primary">Featured</span>
+                                <span class="badge badge-secondary"><?= $tour['scene_count'] ?> scenes</span>
+                            </div>
+                            <div class="tour-overlay">
+                                <a href="vr/tour.php?id=<?= $tour['id'] ?>" class="btn btn-primary">
+                                    <i class="fas fa-play"></i> Start Tour
+                                </a>
+                            </div>
+                        </div>
+                        <div class="tour-content">
+                            <h3 class="tour-title"><?= htmlspecialchars($tour['title']) ?></h3>
+                            <p class="tour-description"><?= htmlspecialchars(substr($tour['description'], 0, 100)) ?>...</p>
+                            <div class="tour-meta">
+                                <div class="tour-rating">
+                                    <?php for ($i = 1; $i <= 5; $i++): ?>
+                                        <i class="fas fa-star <?= $i <= round($tour['avg_rating']) ? 'active' : '' ?>"></i>
+                                    <?php endfor; ?>
+                                    <span>(<?= $tour['avg_rating'] ? round($tour['avg_rating'], 1) : 'No ratings' ?>)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+        
+        <div class="section-footer">
+            <a href="tours.php" class="btn btn-outline-primary">
+                <i class="fas fa-eye me-2"></i>View All Tours
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Recent Tours -->
+<section class="recent-section">
+    <div class="container">
+        <div class="section-header">
+            <h2>Recently Added</h2>
+            <p>Explore our latest virtual tour additions</p>
+        </div>
+        
+        <div class="tours-grid">
+            <?php if (empty($recent_tours)): ?>
+                <div class="empty-state">
+                    <i class="fas fa-plus-circle"></i>
+                    <h3>No Tours Available</h3>
+                    <p>Be the first to create a tour!</p>
+                </div>
+            <?php else: ?>
+                <?php foreach ($recent_tours as $tour): ?>
+                    <div class="tour-card">
+                        <div class="tour-image">
+                            <?php if ($tour['thumbnail']): ?>
+                                <img src="assets/images/uploads/<?= htmlspecialchars($tour['thumbnail']) ?>" alt="<?= htmlspecialchars($tour['title']) ?>" loading="lazy">
+                            <?php else: ?>
+                                <div class="tour-image-placeholder">
+                                    <i class="fas fa-image"></i>
+                                </div>
+                            <?php endif; ?>
+                            <div class="tour-badges">
+                                <span class="badge badge-secondary"><?= $tour['scene_count'] ?> scenes</span>
+                                <span class="badge badge-success">New</span>
+                            </div>
+                            <div class="tour-overlay">
+                                <a href="vr/tour.php?id=<?= $tour['id'] ?>" class="btn btn-primary">
+                                    <i class="fas fa-play"></i> Start Tour
+                                </a>
+                            </div>
+                        </div>
+                        <div class="tour-content">
+                            <h3 class="tour-title"><?= htmlspecialchars($tour['title']) ?></h3>
+                            <p class="tour-description"><?= htmlspecialchars(substr($tour['description'], 0, 100)) ?>...</p>
+                            <div class="tour-meta">
+                                <span class="tour-date">
+                                    <i class="fas fa-clock"></i>
+                                    <?= time_ago($tour['created_at']) ?>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="features-section">
+    <div class="container">
+        <div class="section-header">
+            <h2>Why Choose VR Tours?</h2>
+            <p>Experience the future of virtual exploration</p>
+        </div>
+        
+        <div class="features-grid">
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-360-degrees"></i>
+                </div>
+                <h3>360° Immersion</h3>
+                <p>Complete panoramic views with seamless navigation between scenes</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-vr-cardboard"></i>
+                </div>
+                <h3>VR Ready</h3>
+                <p>Fully compatible with VR headsets for an immersive experience</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-mobile-alt"></i>
+                </div>
+                <h3>Mobile Friendly</h3>
+                <p>Optimized for all devices - desktop, tablet, and mobile</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta-section">
+    <div class="container">
+        <div class="cta-content">
+            <h2>Ready to Explore?</h2>
+            <p>Join thousands of users experiencing the world through virtual reality</p>
+            <div class="cta-actions">
+                <?php if (!isUserLoggedIn()): ?>
+                    <a href="register.php" class="btn btn-primary btn-lg">Create Account</a>
+                    <a href="tours.php" class="btn btn-outline-light btn-lg">Browse Tours</a>
+                <?php else: ?>
+                    <a href="tours.php" class="btn btn-primary btn-lg">Explore Tours</a>
+                    <a href="vr/tour.php?id=2" class="btn btn-outline-light btn-lg">Try Demo</a>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Enhanced scroll animations
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('animate-in');
+                
+                // Special handling for stats section
+                if (entry.target.classList.contains('stats-section')) {
+                    animateCounters();
+                }
+                
+                // Stagger animation for tour cards
+                if (entry.target.classList.contains('tours-grid')) {
+                    const cards = entry.target.querySelectorAll('.tour-card');
+                    cards.forEach((card, index) => {
+                        setTimeout(() => {
+                            card.style.opacity = '1';
+                            card.style.transform = 'translateY(0)';
+                        }, index * 150);
+                    });
+                }
+            }
+        });
+    }, observerOptions);
+
+    // Observe all animatable elements
+    document.querySelectorAll('.stats-section, .featured-section, .recent-section, .features-section, .tours-grid').forEach(el => {
+        observer.observe(el);
+    });
+
+    // Initialize tour cards with stagger effect
+    document.querySelectorAll('.tour-card').forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(50px)';
+        card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+    });
+
+    // Enhanced counter animation
+    function animateCounters() {
+        const counters = [
+            { id: 'stat-tours', target: <?= $stats['total_tours'] ?> },
+            { id: 'stat-scenes', target: <?= $stats['total_scenes'] ?> },
+            { id: 'stat-users', target: <?= $stats['total_users'] ?> },
+            { id: 'stat-favorites', target: <?= $stats['total_favorites'] ?> }
+        ];
+
+        counters.forEach(counter => {
+            const element = document.getElementById(counter.id);
+            if (!element) return;
+
+            let current = 0;
+            const increment = counter.target / 60;
+            const duration = 2000;
+            const stepTime = duration / 60;
+
+            const timer = setInterval(() => {
+                current += increment;
+                if (current >= counter.target) {
+                    element.textContent = counter.target.toLocaleString();
+                    clearInterval(timer);
+                } else {
+                    element.textContent = Math.floor(current).toLocaleString();
+                }
+            }, stepTime);
+        });
     }
 
-    .element-1 {
-        top: -30px;
-        right: 20px;
-        animation-delay: 0s;
-    }
+    // Enhanced hover effects for tour cards
+    document.querySelectorAll('.tour-card').forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.zIndex = '10';
+        });
 
-    .element-2 {
-        bottom: 20px;
-        left: -20px;
-        animation-delay: 1s;
-    }
+        card.addEventListener('mouseleave', function() {
+            this.style.zIndex = '1';
+        });
+    });
 
-    .element-3 {
-        top: 50%;
-        right: -40px;
-        animation-delay: 2s;
-    }
+    // Parallax effect for hero section
+    window.addEventListener('scroll', () => {
+        const scrolled = window.pageYOffset;
+        const parallax = document.querySelector('.hero');
+        if (parallax) {
+            const speed = scrolled * 0.5;
+            parallax.style.transform = `translateY(${speed}px)`;
+        }
+    });
 
-    @keyframes float {
-        0%, 100% { transform: translateY(0px) rotate(0deg); }
-        50% { transform: translateY(-20px) rotate(5deg); }
-    }
+    // Enhanced floating elements animation
+    document.querySelectorAll('.floating-element').forEach((element, index) => {
+        element.style.animationDelay = `${index * 2}s`;
+        element.style.animationDuration = `${8 + index}s`;
+    });
 
+    // Intersection observer for fade-in animations
+    const fadeElements = document.querySelectorAll('.section-header, .stat-item, .feature-item');
+    fadeElements.forEach(el => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(30px)';
+        el.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+    });
+
+    const fadeObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, { threshold: 0.1 });
+
+    fadeElements.forEach(el => fadeObserver.observe(el));
+
+    // Enhanced button interactions
+    document.querySelectorAll('.btn').forEach(btn => {
+        btn.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px) scale(1.02)';
+        });
+
+        btn.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0) scale(1)';
+        });
+
+        btn.addEventListener('mousedown', function() {
+            this.style.transform = 'translateY(1px) scale(0.98)';
+        });
+
+        btn.addEventListener('mouseup', function() {
+            this.style.transform = 'translateY(-2px) scale(1.02)';
+        });
+    });
+
+    // Loading performance optimization
+    const images = document.querySelectorAll('img[data-src]');
+    const imageObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const img = entry.target;
+                img.src = img.dataset.src;
+                img.classList.remove('lazy');
+                imageObserver.unobserve(img);
+            }
+        });
+    });
+
+    images.forEach(img => imageObserver.observe(img));
+
+    // Add smooth reveal animation for sections
+    const sections = document.querySelectorAll('section');
+    sections.forEach(section => {
+        section.style.opacity = '0';
+        section.style.transform = 'translateY(50px)';
+        section.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+    });
+
+    const sectionObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -100px 0px' });
+
+    sections.forEach(section => sectionObserver.observe(section));
+});
+
+// Add additional CSS animations
+const additionalStyles = `
+    <style>
     @keyframes fadeInUp {
         from {
             opacity: 0;
@@ -148,7 +1349,18 @@ include 'includes/user-header.php';
         }
     }
 
-    @keyframes fadeInRight {
+    @keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-50px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes slideInRight {
         from {
             opacity: 0;
             transform: translateX(50px);
@@ -159,1073 +1371,45 @@ include 'includes/user-header.php';
         }
     }
 
-    /* Button Styles */
-    .btn {
-        padding: 14px 32px;
-        border-radius: 12px;
-        font-weight: 600;
-        font-size: 1rem;
-        text-decoration: none;
-        border: none;
-        cursor: pointer;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        position: relative;
-        overflow: hidden;
+    .animate-in {
+        animation: fadeInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     }
 
-    .btn-lg {
-        padding: 16px 40px;
-        font-size: 1.1rem;
+    .slide-left {
+        animation: slideInLeft 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     }
 
-    .btn-primary {
-        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-        color: #667eea;
-        box-shadow: 0 4px 15px rgba(255, 255, 255, 0.3);
+    .slide-right {
+        animation: slideInRight 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     }
 
-    .btn-primary:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(255, 255, 255, 0.4);
-        color: #5a67d8;
+    .tour-card:nth-child(even) {
+        animation-delay: 0.2s;
     }
 
-    .btn-outline-light {
-        background: transparent;
-        color: white;
-        border: 2px solid rgba(255, 255, 255, 0.5);
-        backdrop-filter: blur(10px);
+    .stat-item:nth-child(2) {
+        animation-delay: 0.1s;
     }
 
-    .btn-outline-light:hover {
-        background: white;
-        color: #667eea;
-        border-color: white;
-        transform: translateY(-2px);
+    .stat-item:nth-child(3) {
+        animation-delay: 0.2s;
     }
 
-    .btn-outline {
-        background: transparent;
-        color: #667eea;
-        border: 2px solid #667eea;
+    .stat-item:nth-child(4) {
+        animation-delay: 0.3s;
     }
 
-    .btn-outline:hover {
-        background: #667eea;
-        color: white;
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+    .feature-item:nth-child(2) {
+        animation-delay: 0.2s;
     }
 
-    .btn-light {
-        background: white;
-        color: #667eea;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    .feature-item:nth-child(3) {
+        animation-delay: 0.4s;
     }
+    </style>
+`;
 
-    .btn-light:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-    }
-
-    /* Card Styles */
-    .card {
-        background: white;
-        border-radius: 20px;
-        border: none;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-        transition: all 0.4s ease;
-        overflow: hidden;
-        position: relative;
-    }
-
-    .card-hover:hover {
-        transform: translateY(-10px);
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-    }
-
-    .card-body {
-        padding: 2rem;
-        text-align: center;
-    }
-
-    .tour-card {
-        transition: all 0.4s ease;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .tour-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-        transition: left 0.5s ease;
-        z-index: 1;
-    }
-
-    .tour-card:hover::before {
-        left: 100%;
-    }
-
-    .tour-card:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 15px 35px rgba(102, 126, 234, 0.2);
-    }
-
-    .tour-image {
-        height: 200px;
-        object-fit: cover;
-        transition: transform 0.4s ease;
-    }
-
-    .tour-card:hover .tour-image {
-        transform: scale(1.05);
-    }
-
-    .tour-image-placeholder {
-        height: 200px;
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #6c757d;
-        font-size: 2rem;
-    }
-
-    /* Badge Styles */
-    .badge {
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-weight: 600;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .badge-primary {
-        background: var(--hero-gradient);
-        color: white;
-    }
-
-    .badge-secondary {
-        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
-        color: white;
-    }
-
-    .badge-outline {
-        background: transparent;
-        color: #6c757d;
-        border: 1px solid #dee2e6;
-    }
-
-    /* Stats Section */
-    .stats-section {
-        padding: 80px 0;
-        background: linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%);
-    }
-
-    .stat-card {
-        text-align: center;
-        padding: 2.5rem 2rem;
-        background: white;
-        border-radius: 20px;
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
-        transition: all 0.4s ease;
-        position: relative;
-        overflow: hidden;
-        height: 100%;
-    }
-
-    .stat-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: var(--hero-gradient);
-    }
-
-    .stat-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 15px 40px rgba(102, 126, 234, 0.15);
-    }
-
-    .stat-icon {
-        width: 80px;
-        height: 80px;
-        margin: 0 auto 1.5rem;
-        background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 2rem;
-    }
-
-    .stat-number {
-        font-size: 3rem;
-        font-weight: 800;
-        background: var(--hero-gradient);
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        line-height: 1;
-        margin-bottom: 0.5rem;
-    }
-
-    /* Features Section */
-    .features-section {
-        padding: 100px 0;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .features-section::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.05' fill-rule='evenodd'%3E%3Cpath d='M20 20c0 4.418-3.582 8-8 8s-8-3.582-8-8 3.582-8 8-8 8 3.582 8 8zm0-20c0 4.418-3.582 8-8 8s-8-3.582-8-8 3.582-8 8-8 8 3.582 8 8z'/%3E%3C/g%3E%3C/svg%3E") repeat;
-    }
-
-    .feature-card {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 20px;
-        padding: 2.5rem;
-        text-align: center;
-        height: 100%;
-        transition: all 0.4s ease;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .feature-card:hover {
-        transform: translateY(-8px);
-        background: rgba(255, 255, 255, 0.15);
-    }
-
-    .feature-icon {
-        width: 80px;
-        height: 80px;
-        margin: 0 auto 2rem;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 2rem;
-    }
-
-    /* How It Works Section */
-    .how-it-works {
-        padding: 100px 0;
-        background: white;
-    }
-
-    .step-card {
-        text-align: center;
-        padding: 2rem;
-        position: relative;
-    }
-
-    .step-number {
-        width: 60px;
-        height: 60px;
-        background: var(--hero-gradient);
-        color: white;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.5rem;
-        font-weight: 700;
-        margin: 0 auto 1.5rem;
-        position: relative;
-        z-index: 2;
-    }
-
-    .step-card::after {
-        content: '';
-        position: absolute;
-        top: 30px;
-        left: 50%;
-        width: 100%;
-        height: 2px;
-        background: linear-gradient(90deg, transparent 0%, #e9ecef 20%, #e9ecef 80%, transparent 100%);
-        z-index: 1;
-    }
-
-    .step-card:last-child::after {
-        display: none;
-    }
-
-    /* Testimonials Section */
-    .testimonials-section {
-        padding: 100px 0;
-        background: linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%);
-    }
-
-    .testimonial-card {
-        background: white;
-        border-radius: 20px;
-        padding: 2.5rem;
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
-        text-align: center;
-        height: 100%;
-        position: relative;
-    }
-
-    .testimonial-avatar {
-        width: 80px;
-        height: 80px;
-        background: var(--hero-gradient);
-        border-radius: 50%;
-        margin: 0 auto 1.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 2rem;
-        font-weight: 600;
-    }
-
-    .testimonial-stars {
-        color: #fbbf24;
-        font-size: 1.2rem;
-        margin-bottom: 1.5rem;
-    }
-
-    /* CTA Section */
-    .cta-section {
-        background: var(--hero-gradient);
-        background-size: 400% 400%;
-        animation: gradientShift 15s ease infinite;
-        color: white;
-        padding: 100px 0;
-        text-align: center;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .cta-section::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3Ccircle cx='10' cy='30' r='4'/%3E%3Ccircle cx='50' cy='30' r='4'/%3E%3Ccircle cx='30' cy='10' r='4'/%3E%3Ccircle cx='30' cy='50' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") repeat;
-    }
-
-    /* Utility Classes */
-    .container {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 0 24px;
-    }
-
-    .row {
-        display: flex;
-        flex-wrap: wrap;
-        margin: 0 -15px;
-    }
-
-    .col-md-4, .col-md-6, .col-lg-4, .col-lg-6 {
-        padding: 0 15px;
-        flex: 0 0 100%;
-        max-width: 100%;
-        margin-bottom: 2rem;
-    }
-
-    @media (min-width: 768px) {
-        .col-md-4 {
-            flex: 0 0 33.333333%;
-            max-width: 33.333333%;
-        }
-        .col-md-6 {
-            flex: 0 0 50%;
-            max-width: 50%;
-        }
-    }
-
-    @media (min-width: 992px) {
-        .col-lg-4 {
-            flex: 0 0 33.333333%;
-            max-width: 33.333333%;
-        }
-        .col-lg-6 {
-            flex: 0 0 50%;
-            max-width: 50%;
-        }
-    }
-
-    .d-flex {
-        display: flex;
-    }
-
-    .align-items-center {
-        align-items: center;
-    }
-
-    .justify-content-between {
-        justify-content: space-between;
-    }
-
-    .justify-content-center {
-        justify-content: center;
-    }
-
-    .text-center {
-        text-align: center;
-    }
-
-    .flex-wrap {
-        flex-wrap: wrap;
-    }
-
-    .gap-3 {
-        gap: 1rem;
-    }
-
-    .mb-3 {
-        margin-bottom: 1rem;
-    }
-
-    .mb-4 {
-        margin-bottom: 1.5rem;
-    }
-
-    .mb-6 {
-        margin-bottom: 2rem;
-    }
-
-    .mb-8 {
-        margin-bottom: 3rem;
-    }
-
-    .mb-16 {
-        margin-bottom: 6rem;
-    }
-
-    .me-1 {
-        margin-right: 0.25rem;
-    }
-
-    .me-2 {
-        margin-right: 0.5rem;
-    }
-
-    .ms-2 {
-        margin-left: 0.5rem;
-    }
-
-    .py-16 {
-        padding-top: 6rem;
-        padding-bottom: 6rem;
-    }
-
-    .h-100 {
-        height: 100%;
-    }
-
-    .opacity-20 {
-        opacity: 0.2;
-    }
-
-    .opacity-90 {
-        opacity: 0.9;
-    }
-
-    .display-4 {
-        font-size: 3.5rem;
-        font-weight: 300;
-        line-height: 1.2;
-    }
-
-    .fw-bold {
-        font-weight: 700;
-    }
-
-    .lead {
-        font-size: 1.25rem;
-        font-weight: 300;
-        line-height: 1.6;
-    }
-
-    .h2, .h3, .h5 {
-        font-family: 'Space Grotesk', sans-serif;
-        font-weight: 600;
-    }
-
-    .h2 {
-        font-size: 2rem;
-    }
-
-    .h3 {
-        font-size: 1.75rem;
-    }
-
-    .h5 {
-        font-size: 1.25rem;
-    }
-
-    .text-gray-600 {
-        color: #6b7280;
-    }
-
-    .text-gray-400 {
-        color: #9ca3af;
-    }
-
-    .text-warning {
-        color: #fbbf24;
-    }
-
-    .text-success {
-        color: #10b981;
-    }
-
-    .text-info {
-        color: #3b82f6;
-    }
-
-    .text-primary {
-        color: #667eea;
-    }
-
-    .text-sm {
-        font-size: 0.875rem;
-    }
-
-    .text-3xl {
-        font-size: 1.875rem;
-    }
-
-    .text-4xl {
-        font-size: 2.25rem;
-    }
-
-    .text-8xl {
-        font-size: 6rem;
-    }
-
-    .text-white {
-        color: white;
-    }
-
-    .position-absolute {
-        position: absolute;
-    }
-
-    .top-2 {
-        top: 0.5rem;
-    }
-
-    .left-2 {
-        left: 0.5rem;
-    }
-
-    .d-grid {
-        display: grid;
-    }
-
-    .card-img-top {
-        width: 100%;
-        border-top-left-radius: 20px;
-        border-top-right-radius: 20px;
-    }
-
-    .card-title {
-        color: #1f2937;
-        margin-bottom: 1rem;
-    }
-
-    .card-text {
-        margin-bottom: 1.5rem;
-        line-height: 1.6;
-    }
-
-    .card-footer {
-        padding: 1.5rem 2rem 2rem;
-        background: transparent;
-        border: none;
-    }
-
-    .bg-primary {
-        background: var(--hero-gradient);
-    }
-
-    /* Responsive Design */
-    @media (max-width: 768px) {
-        .hero {
-            padding: 80px 0;
-        }
-        
-        .display-4 {
-            font-size: 2.5rem;
-        }
-        
-        .hero-visual .fa-vr-cardboard {
-            font-size: 4rem;
-            margin-top: 2rem;
-        }
-        
-        .text-8xl {
-            font-size: 4rem;
-        }
-        
-        .floating-element {
-            width: 40px;
-            height: 40px;
-            font-size: 1rem;
-        }
-        
-        .stat-number {
-            font-size: 2rem;
-        }
-        
-        .features-section,
-        .how-it-works,
-        .testimonials-section,
-        .cta-section {
-            padding: 60px 0;
-        }
-        
-        .stats-section {
-            padding: 60px 0;
-        }
-        
-        .btn-lg {
-            padding: 12px 24px;
-            font-size: 1rem;
-        }
-        
-        .container {
-            padding: 0 16px;
-        }
-
-        .d-flex.gap-3 {
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .d-flex.justify-content-between {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 1rem;
-        }
-
-        .d-flex.justify-content-center.gap-3 {
-            flex-direction: column;
-            align-items: center;
-        }
-    }
-
-    @media (max-width: 480px) {
-        .display-4 {
-            font-size: 2rem;
-        }
-        
-        .lead {
-            font-size: 1.1rem;
-        }
-        
-        .stat-card {
-            padding: 1.5rem;
-        }
-        
-        .feature-card,
-        .testimonial-card {
-            padding: 1.5rem;
-        }
-
-        .hero {
-            padding: 60px 0;
-        }
-
-        .py-16 {
-            padding-top: 4rem;
-            padding-bottom: 4rem;
-        }
-
-        .mb-16 {
-            margin-bottom: 4rem;
-        }
-
-        .mb-8 {
-            margin-bottom: 2rem;
-        }
-    }
-</style>
-
-<!-- Hero Section -->
-<section class="hero">
-    <div class="container">
-        <div class="row align-items-center">
-            <div class="col-lg-6">
-                <div class="hero-content">
-                    <h1 class="display-4 fw-bold mb-4">Step Into Another World</h1>
-                    <p class="lead mb-6">Experience breathtaking 360° virtual tours of museums, landmarks, and hidden gems from around the globe. Discover places you've never been, all from the comfort of your home.</p>
-                    <div class="d-flex flex-wrap gap-3">
-                        <a href="tours.php" class="btn btn-primary btn-lg">
-                            <i class="fas fa-compass me-2"></i>Explore Tours
-                        </a>
-                        <?php if (!isUserLoggedIn()): ?>
-                            <a href="register.php" class="btn btn-outline-light btn-lg">
-                                <i class="fas fa-user-plus me-2"></i>Get Started
-                            </a>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-6 text-center">
-                <div class="hero-visual">
-                    <i class="fas fa-vr-cardboard text-8xl text-white opacity-20"></i>
-                    <div class="floating-elements">
-                        <div class="floating-element element-1">
-                            <i class="fas fa-mountain text-warning"></i>
-                        </div>
-                        <div class="floating-element element-2">
-                            <i class="fas fa-landmark"></i>
-                        </div>
-                        <div class="floating-element element-3">
-                            <i class="fas fa-water"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- Stats Section -->
-<section class="stats-section">
-    <div class="container">
-        <div class="row">
-            <div class="col-md-4">
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-map-marked-alt" style="color: #667eea;"></i>
-                    </div>
-                    <div class="stat-number"><?php echo number_format($stats['total_tours']); ?></div>
-                    <h5>Virtual Tours</h5>
-                    <p class="text-gray-600">Immersive experiences waiting for you to explore</p>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-image" style="color: #48bb78;"></i>
-                    </div>
-                    <div class="stat-number"><?php echo number_format($stats['total_scenes']); ?></div>
-                    <h5>360° Scenes</h5>
-                    <p class="text-gray-600">High-quality panoramic views and interactive hotspots</p>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-users" style="color: #ed8936;"></i>
-                    </div>
-                    <div class="stat-number"><?php echo number_format($stats['total_users']); ?></div>
-                    <h5>Community Members</h5>
-                    <p class="text-gray-600">Active explorers discovering the world virtually</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- Features Section -->
-<section class="features-section">
-    <div class="container">
-        <div class="text-center mb-8">
-            <h2 class="h2 mb-4">Why Choose Our VR Tours?</h2>
-            <p class="lead opacity-90">Experience the future of travel with cutting-edge virtual reality technology</p>
-        </div>
-        <div class="row">
-            <div class="col-md-4 mb-6">
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-vr-cardboard"></i>
-                    </div>
-                    <h3 class="h5 mb-4">Immersive 360° Views</h3>
-                    <p>Step inside stunning locations with full 360° panoramic photography. Look around, zoom in, and discover every detail as if you were really there.</p>
-                </div>
-            </div>
-            <div class="col-md-4 mb-6">
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-mouse-pointer"></i>
-                    </div>
-                    <h3 class="h5 mb-4">Interactive Hotspots</h3>
-                    <p>Click on interactive elements to learn more, view additional content, and navigate seamlessly between different areas of each location.</p>
-                </div>
-            </div>
-            <div class="col-md-4 mb-6">
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-mobile-alt"></i>
-                    </div>
-                    <h3 class="h5 mb-4">Cross-Platform Access</h3>
-                    <p>Enjoy tours on any device - desktop, tablet, or smartphone. VR headset compatible for the ultimate immersive experience.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- How It Works Section -->
-<section class="how-it-works">
-    <div class="container">
-        <div class="text-center mb-8">
-            <h2 class="h2 mb-4">How It Works</h2>
-            <p class="lead text-gray-600">Get started with virtual tours in just three simple steps</p>
-        </div>
-        <div class="row">
-            <div class="col-md-4">
-                <div class="step-card">
-                    <div class="step-number">1</div>
-                    <h3 class="h5 mb-3">Choose Your Destination</h3>
-                    <p class="text-gray-600">Browse our curated collection of virtual tours from museums, landmarks, and unique locations around the world.</p>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="step-card">
-                    <div class="step-number">2</div>
-                    <h3 class="h5 mb-3">Start Exploring</h3>
-                    <p class="text-gray-600">Click to enter the immersive 360° environment. Navigate through scenes and interact with hotspots to learn more.</p>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="step-card">
-                    <div class="step-number">3</div>
-                    <h3 class="h5 mb-3">Share & Discover</h3>
-                    <p class="text-gray-600">Rate your favorite tours, leave reviews, and discover new experiences recommended by our community.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- Featured Tours Section -->
-<section class="container mb-16">
-    <div class="d-flex justify-content-between align-items-center mb-8">
-        <h2 class="h3">Featured Experiences</h2>
-        <a href="tours.php?filter=featured" class="btn btn-outline">
-            View All <i class="fas fa-arrow-right ms-2"></i>
-        </a>
-    </div>
-    
-    <div class="row">
-        <?php foreach ($featured_tours as $tour): ?>
-            <div class="col-md-6 col-lg-4 mb-6">
-                <div class="card tour-card h-100">
-                    <?php if ($tour['thumbnail']): ?>
-                        <img src="assets/images/uploads/<?php echo $tour['thumbnail']; ?>" 
-                             class="card-img-top tour-image" 
-                             alt="<?php echo htmlspecialchars($tour['title']); ?>">
-                    <?php else: ?>
-                        <div class="tour-image-placeholder">
-                            <i class="fas fa-image text-3xl text-gray-400"></i>
-                        </div>
-                    <?php endif; ?>
-                    
-                    <?php if ($tour['featured']): ?>
-                        <div class="position-absolute top-2 left-2">
-                            <span class="badge badge-primary">
-                                <i class="fas fa-star me-1"></i>Featured
-                            </span>
-                        </div>
-                    <?php endif; ?>
-                    
-                    <div class="card-body">
-                        <h3 class="h5 card-title"><?php echo htmlspecialchars($tour['title']); ?></h3>
-                        <p class="card-text text-gray-600">
-                            <?php echo htmlspecialchars(substr($tour['description'], 0, 120)); ?>
-                            <?php if (strlen($tour['description']) > 120): ?>...<?php endif; ?>
-                        </p>
-                        
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <span class="badge badge-secondary">
-                                <i class="fas fa-image me-1"></i><?php echo $tour['scene_count']; ?> scenes
-                            </span>
-                            <span class="badge badge-outline"><?php echo htmlspecialchars($tour['category']); ?></span>
-                        </div>
-                        
-                        <?php if ($tour['avg_rating']): ?>
-                            <div class="d-flex align-items-center mb-3">
-                                <div class="text-warning me-2">
-                                    <?php for ($i = 1; $i <= 5; $i++): ?>
-                                        <i class="fas fa-star<?php echo $i <= round($tour['avg_rating']) ? '' : '-half-alt'; ?>"></i>
-                                    <?php endfor; ?>
-                                </div>
-                                <span class="text-sm text-gray-600">(<?php echo number_format($tour['avg_rating'], 1); ?>)</span>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                    
-                    <div class="card-footer">
-                        <div class="d-grid">
-                            <a href="vr/tour.php?id=<?php echo $tour['id']; ?>" class="btn btn-primary">
-                                <i class="fas fa-play-circle me-2"></i>Start Tour
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    </div>
-</section>
-
-<!-- Recent Tours Section -->
-<section class="container mb-16">
-    <div class="d-flex justify-content-between align-items-center mb-8">
-        <h2 class="h3">Recently Added</h2>
-        <a href="tours.php?sort=newest" class="btn btn-outline">
-            View All <i class="fas fa-arrow-right ms-2"></i>
-        </a>
-    </div>
-    
-    <div class="row">
-        <?php foreach ($recent_tours as $tour): ?>
-            <div class="col-md-6 col-lg-4 mb-6">
-                <div class="card tour-card h-100">
-                    <?php if ($tour['thumbnail']): ?>
-                        <img src="assets/images/uploads/<?php echo $tour['thumbnail']; ?>" 
-                             class="card-img-top tour-image" 
-                             alt="<?php echo htmlspecialchars($tour['title']); ?>">
-                    <?php else: ?>
-                        <div class="tour-image-placeholder">
-                            <i class="fas fa-image text-3xl text-gray-400"></i>
-                        </div>
-                    <?php endif; ?>
-                    
-                    <div class="card-body">
-                        <h3 class="h5 card-title"><?php echo htmlspecialchars($tour['title']); ?></h3>
-                        <p class="card-text text-gray-600">
-                            <?php echo htmlspecialchars(substr($tour['description'], 0, 120)); ?>
-                            <?php if (strlen($tour['description']) > 120): ?>...<?php endif; ?>
-                        </p>
-                        
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <span class="badge badge-secondary">
-                                <i class="fas fa-image me-1"></i><?php echo $tour['scene_count']; ?> scenes
-                            </span>
-                            <span class="badge badge-outline"><?php echo htmlspecialchars($tour['category']); ?></span>
-                        </div>
-                    </div>
-                    
-                    <div class="card-footer">
-                        <div class="d-grid">
-                            <a href="vr/tour.php?id=<?php echo $tour['id']; ?>" class="btn btn-outline">
-                                <i class="fas fa-eye me-2"></i>Explore Tour
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    </div>
-</section>
-
-<!-- Testimonials Section -->
-<section class="testimonials-section">
-    <div class="container">
-        <div class="text-center mb-8">
-            <h2 class="h2 mb-4">What Our Users Say</h2>
-            <p class="lead text-gray-600">Hear from travelers who've explored the world virtually</p>
-        </div>
-        <div class="row">
-            <div class="col-md-4">
-                <div class="testimonial-card">
-                    <div class="testimonial-avatar">S</div>
-                    <div class="testimonial-stars">
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                    </div>
-                    <p class="mb-4">"Absolutely amazing! I felt like I was actually walking through the Louvre. The level of detail and interactivity is incredible."</p>
-                    <div>
-                        <h5 class="h6 mb-1">Sarah Johnson</h5>
-                        <p class="text-sm text-gray-600">Art Enthusiast</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="testimonial-card">
-                    <div class="testimonial-avatar">M</div>
-                    <div class="testimonial-stars">
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                    </div>
-                    <p class="mb-4">"Perfect for travel planning! I explored several destinations before booking my trip. Saved me so much time and helped me prioritize what to see."</p>
-                    <div>
-                        <h5 class="h6 mb-1">Michael Chen</h5>
-                        <p class="text-sm text-gray-600">Travel Blogger</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="testimonial-card">
-                    <div class="testimonial-avatar">E</div>
-                    <div class="testimonial-stars">
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                    </div>
-                    <p class="mb-4">"As an educator, these virtual tours have revolutionized how I teach geography and history. My students are completely engaged!"</p>
-                    <div>
-                        <h5 class="h6 mb-1">Emily Rodriguez</h5>
-                        <p class="text-sm text-gray-600">High School Teacher</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- CTA Section -->
-<section class="cta-section">
-    <div class="container text-center">
-        <h2 class="h2 mb-4">Ready to Explore?</h2>
-        <p class="lead mb-6 opacity-90">Join thousands of users discovering amazing virtual experiences every day.</p>
-        <div class="d-flex justify-content-center gap-3">
-            <?php if (isUserLoggedIn()): ?>
-                <a href="tours.php" class="btn btn-light btn-lg">
-                    <i class="fas fa-compass me-2"></i>Browse Tours
-                </a>
-            <?php else: ?>
-                <a href="register.php" class="btn btn-light btn-lg">
-                    <i class="fas fa-user-plus me-2"></i>Get Started Free
-                </a>
-                <a href="tours.php" class="btn btn-outline-light btn-lg">
-                    <i class="fas fa-eye me-2"></i>Explore First
-                </a>
-            <?php endif; ?>
-        </div>
-    </div>
-</section>
+document.head.insertAdjacentHTML('beforeend', additionalStyles);
+</script>
 
-<?php include 'includes/user-footer.php';
+<?php include 'includes/user-footer.php'; ?>

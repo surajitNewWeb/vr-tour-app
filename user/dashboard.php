@@ -4,122 +4,177 @@ require_once '../includes/config.php';
 require_once '../includes/user-auth.php';
 require_once '../includes/database.php';
 
-redirectIfUserNotLoggedIn();
+// Check if user is logged in, redirect if not
+if (!isUserLoggedIn()) {
+    header("Location: ../login.php");
+    exit();
+}
 
-// Get user stats
-$user_id = $_SESSION['user_id'];
-$user_tours = $pdo->prepare("SELECT COUNT(*) FROM tours WHERE created_by = ?");
-$user_tours->execute([$user_id]);
-$tours_count = $user_tours->fetchColumn();
+// Get user data
+$user_data = getUserData();
 
-$user_favorites = $pdo->prepare("SELECT COUNT(*) FROM favorites WHERE user_id = ?");
-$user_favorites->execute([$user_id]);
-$favorites_count = $user_favorites->fetchColumn();
-
-$user_reviews = $pdo->prepare("SELECT COUNT(*) FROM reviews WHERE user_id = ?");
-$user_reviews->execute([$user_id]);
-$reviews_count = $user_reviews->fetchColumn();
-
-// Get recent favorites
-$recent_favorites = $pdo->prepare("
-    SELECT t.*, f.created_at as favorited_at 
-    FROM favorites f 
-    JOIN tours t ON f.tour_id = t.id 
-    WHERE f.user_id = ? 
+// Get user's favorite tours
+$stmt = $pdo->prepare("
+    SELECT t.* 
+    FROM tours t 
+    INNER JOIN favorites f ON t.id = f.tour_id 
+    WHERE f.user_id = :user_id AND t.published = 1
     ORDER BY f.created_at DESC 
-    LIMIT 5
+    LIMIT 6
 ");
-$recent_favorites->execute([$user_id]);
-$favorites = $recent_favorites->fetchAll();
+$stmt->execute([':user_id' => $_SESSION['user_id']]);
+$favorite_tours = $stmt->fetchAll();
+
+// Get user's progress
+$stmt = $pdo->prepare("
+    SELECT t.id, t.title, t.thumbnail, p.last_scene_id, p.completed, p.updated_at,
+           (SELECT COUNT(*) FROM scenes s WHERE s.tour_id = t.id) as total_scenes
+    FROM progress p 
+    INNER JOIN tours t ON p.tour_id = t.id 
+    WHERE p.user_id = :user_id 
+    ORDER BY p.updated_at DESC 
+    LIMIT 6
+");
+$stmt->execute([':user_id' => $_SESSION['user_id']]);
+$user_progress = $stmt->fetchAll();
 
 $page_title = "User Dashboard - VR Tour Application";
 include '../includes/user-header.php';
 ?>
 
-<div class="row">
-    <div class="col-md-12">
-        <h1>Welcome, <?php echo htmlspecialchars($_SESSION['user_username']); ?>!</h1>
-        <p class="lead">Here's your activity overview</p>
+<div class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Welcome, <?php echo htmlspecialchars($user_data['username']); ?>!</h1>
+                <a href="profile.php" class="btn btn-outline-primary">
+                    <i class="fas fa-user"></i> Edit Profile
+                </a>
+            </div>
+        </div>
     </div>
-</div>
 
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h2><?php echo $tours_count; ?></h2>
-                <p class="card-text">Tours Created</p>
-                <a href="my-tours.php" class="btn btn-outline-primary">View Tours</a>
+    <!-- User Stats -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Favorite Tours</h5>
+                    <h3 class="text-primary"><?php echo count($favorite_tours); ?></h3>
+                </div>
             </div>
         </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h2><?php echo $favorites_count; ?></h2>
-                <p class="card-text">Favorites</p>
-                <a href="favorites.php" class="btn btn-outline-primary">View Favorites</a>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Tours in Progress</h5>
+                    <h3 class="text-warning"><?php echo count(array_filter($user_progress, function($p) { return !$p['completed']; })); ?></h3>
+                </div>
             </div>
         </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h2><?php echo $reviews_count; ?></h2>
-                <p class="card-text">Reviews</p>
-                <a href="reviews.php" class="btn btn-outline-primary">View Reviews</a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h5>Recent Favorites</h5>
-            </div>
-            <div class="card-body">
-                <?php if (count($favorites) > 0): ?>
-                    <div class="list-group">
-                        <?php foreach ($favorites as $favorite): ?>
-                            <a href="../vr/tour.php?id=<?php echo $favorite['id']; ?>" class="list-group-item list-group-item-action">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1"><?php echo htmlspecialchars($favorite['title']); ?></h6>
-                                    <small><?php echo date('M j', strtotime($favorite['favorited_at'])); ?></small>
-                                </div>
-                                <small class="text-muted"><?php echo htmlspecialchars($favorite['category']); ?></small>
-                            </a>
-                        <?php endforeach; ?>
-                    </div>
-                <?php else: ?>
-                    <p class="text-muted">You haven't favorited any tours yet.</p>
-                    <a href="../tours.php" class="btn btn-primary">Browse Tours</a>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h5>Quick Actions</h5>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <a href="../tours.php" class="btn btn-outline-primary">
-                        <i class="fas fa-search me-2"></i>Browse Tours
-                    </a>
-                    <a href="profile.php" class="btn btn-outline-secondary">
-                        <i class="fas fa-user me-2"></i>Edit Profile
-                    </a>
-                    <a href="settings.php" class="btn btn-outline-secondary">
-                        <i class="fas fa-cog me-2"></i>Account Settings
-                    </a>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Completed Tours</h5>
+                    <h3 class="text-success"><?php echo count(array_filter($user_progress, function($p) { return $p['completed']; })); ?></h3>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Favorite Tours -->
+    <?php if (!empty($favorite_tours)): ?>
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h3>Your Favorite Tours</h3>
+            <div class="row">
+                <?php foreach ($favorite_tours as $tour): ?>
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <?php if ($tour['thumbnail']): ?>
+                            <img src="../assets/images/uploads/<?php echo $tour['thumbnail']; ?>" class="card-img-top" alt="<?php echo htmlspecialchars($tour['title']); ?>">
+                        <?php else: ?>
+                            <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center" style="height: 150px;">
+                                <i class="fas fa-image fa-2x text-light"></i>
+                            </div>
+                        <?php endif; ?>
+                        <div class="card-body">
+                            <h5 class="card-title"><?php echo htmlspecialchars($tour['title']); ?></h5>
+                            <p class="card-text"><?php echo htmlspecialchars(substr($tour['description'], 0, 100)); ?>...</p>
+                        </div>
+                        <div class="card-footer">
+                            <a href="../vr/tour.php?id=<?php echo $tour['id']; ?>" class="btn btn-primary btn-sm">
+                                <i class="fas fa-play"></i> Continue Tour
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- Recent Progress -->
+    <?php if (!empty($user_progress)): ?>
+    <div class="row">
+        <div class="col-md-12">
+            <h3>Recent Activity</h3>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Tour</th>
+                            <th>Progress</th>
+                            <th>Status</th>
+                            <th>Last Activity</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($user_progress as $progress): ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($progress['title']); ?></td>
+                            <td>
+                                <div class="progress" style="height: 10px;">
+                                    <?php 
+                                    $progress_percent = $progress['total_scenes'] > 0 
+                                        ? (($progress['last_scene_id'] / $progress['total_scenes']) * 100) 
+                                        : 0;
+                                    ?>
+                                    <div class="progress-bar" style="width: <?php echo min($progress_percent, 100); ?>%"></div>
+                                </div>
+                                <small><?php echo round(min($progress_percent, 100)); ?>% complete</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-<?php echo $progress['completed'] ? 'success' : 'warning'; ?>">
+                                    <?php echo $progress['completed'] ? 'Completed' : 'In Progress'; ?>
+                                </span>
+                            </td>
+                            <td><?php echo time_ago($progress['updated_at']); ?></td>
+                            <td>
+                                <a href="../vr/tour.php?id=<?php echo $progress['id']; ?>" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-play"></i> Continue
+                                </a>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <?php else: ?>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert alert-info">
+                <h4>No activity yet!</h4>
+                <p>Start exploring VR tours to see your progress here.</p>
+                <a href="../tours.php" class="btn btn-primary">Browse Tours</a>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
 
 <?php include '../includes/user-footer.php'; ?>
