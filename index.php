@@ -4,11 +4,12 @@ require_once 'includes/config.php';
 require_once 'includes/user-auth.php';
 require_once 'includes/database.php';
 
-// Get featured tours using the correct Database class methods
+// Get featured tours
 $stmt = $pdo->prepare("
     SELECT t.*, 
            (SELECT COUNT(*) FROM scenes s WHERE s.tour_id = t.id) as scene_count,
-           (SELECT AVG(rating) FROM reviews r WHERE r.tour_id = t.id AND r.approved = 1) as avg_rating
+           (SELECT AVG(rating) FROM reviews r WHERE r.tour_id = t.id AND r.approved = 1) as avg_rating,
+           t.category as category_name
     FROM tours t 
     WHERE t.published = 1 AND t.featured = 1
     ORDER BY t.created_at DESC 
@@ -21,7 +22,8 @@ $featured_tours = $stmt->fetchAll();
 $stmt = $pdo->prepare("
     SELECT t.*, 
            (SELECT COUNT(*) FROM scenes s WHERE s.tour_id = t.id) as scene_count,
-           (SELECT AVG(rating) FROM reviews r WHERE r.tour_id = t.id AND r.approved = 1) as avg_rating
+           (SELECT AVG(rating) FROM reviews r WHERE r.tour_id = t.id AND r.approved = 1) as avg_rating,
+           t.category as category_name
     FROM tours t 
     WHERE t.published = 1
     ORDER BY t.created_at DESC 
@@ -30,16 +32,46 @@ $stmt = $pdo->prepare("
 $stmt->execute();
 $recent_tours = $stmt->fetchAll();
 
+// Get popular categories from tours table
+$stmt = $pdo->prepare("
+    SELECT category as name, COUNT(*) as tour_count
+    FROM tours 
+    WHERE published = 1
+    GROUP BY category 
+    ORDER BY tour_count DESC 
+    LIMIT 6
+");
+$stmt->execute();
+$categories = $stmt->fetchAll();
+
 // Get tour statistics
 $stmt = $pdo->prepare("
     SELECT 
         (SELECT COUNT(*) FROM tours WHERE published = 1) as total_tours,
         (SELECT COUNT(*) FROM scenes) as total_scenes,
         (SELECT COUNT(*) FROM users) as total_users,
-        (SELECT COUNT(*) FROM favorites) as total_favorites
+        (SELECT COUNT(*) FROM favorites) as total_favorites,
+        (SELECT COUNT(*) FROM tours WHERE published = 1 AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as weekly_tours
 ");
 $stmt->execute();
 $stats = $stmt->fetch();
+
+// Get trending tours (based on views/favorites in last 30 days)
+$stmt = $pdo->prepare("
+    SELECT t.*, 
+           (SELECT COUNT(*) FROM scenes s WHERE s.tour_id = t.id) as scene_count,
+           (SELECT AVG(rating) FROM reviews r WHERE r.tour_id = t.id AND r.approved = 1) as avg_rating,
+           t.category as category_name,
+           COUNT(DISTINCT f.id) as favorite_count
+    FROM tours t
+    LEFT JOIN favorites f ON t.id = f.tour_id AND f.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+    WHERE t.published = 1
+    GROUP BY t.id
+    ORDER BY favorite_count DESC, t.views DESC
+    LIMIT 3
+");
+$stmt->execute();
+$trending_tours = $stmt->fetchAll();
 
 $page_title = "Explore Immersive VR Tours";
 $show_page_header = false;
@@ -58,16 +90,18 @@ include 'includes/user-header.php';
     --card-shadow-hover: 0 30px 60px rgba(0,0,0,0.15);
     --glow-primary: 0 0 30px rgba(99, 102, 241, 0.3);
     --glow-secondary: 0 0 30px rgba(236, 72, 153, 0.3);
+    --vr-accent: #00d4ff;
 }
 
-/* Hero Section */
+/* Hero Section with 360° Preview */
 .hero {
     min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #0f172a, #1e293b);
     position: relative;
     display: flex;
     align-items: center;
     overflow: hidden;
+    isolation: isolate;
 }
 
 .hero::before {
@@ -78,14 +112,15 @@ include 'includes/user-header.php';
     right: 0;
     bottom: 0;
     background: 
-        radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%);
+    radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(236, 72, 153, 0.15) 0%, transparent 50%);
     animation: heroGlow 8s ease-in-out infinite alternate;
+    z-index: -1;
 }
 
 @keyframes heroGlow {
-    0% { opacity: 0.5; }
-    100% { opacity: 1; }
+    0% { opacity: 0.5; transform: scale(1); }
+    100% { opacity: 1; transform: scale(1.05); }
 }
 
 .hero-content {
@@ -105,26 +140,21 @@ include 'includes/user-header.php';
 }
 
 .hero-title {
-    font-size: 4rem;
+    font-size: 3.5rem;
     font-weight: 800;
     line-height: 1.1;
-    margin-bottom: 2rem;
-    background: linear-gradient(135deg, #ffffff, #f0f0f0);
+    margin-bottom: 1.5rem;
+    background: linear-gradient(135deg, #ffffff, #cbd5e1);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    animation: titleFloat 6s ease-in-out infinite alternate;
-}
-
-@keyframes titleFloat {
-    0% { transform: translateY(0px); }
-    100% { transform: translateY(-10px); }
+    text-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
 }
 
 .hero-description {
     font-size: 1.25rem;
     line-height: 1.8;
-    margin-bottom: 3rem;
+    margin-bottom: 2.5rem;
     opacity: 0.9;
     max-width: 500px;
 }
@@ -176,117 +206,124 @@ include 'includes/user-header.php';
     box-shadow: 0 10px 30px rgba(255, 255, 255, 0.2);
 }
 
-/* VR Headset Visualization */
-.hero-visual {
-    display: flex;
-    justify-content: center;
-    align-items: center;
+/* 360° Preview Container */
+.vr-preview-container {
     position: relative;
+    width: 100%;
+    height: 400px;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    transform-style: preserve-3d;
+    perspective: 1000px;
 }
 
-.vr-headset {
-    width: 300px;
-    height: 180px;
-    position: relative;
-    animation: float 6s ease-in-out infinite;
-}
-
-@keyframes float {
-    0%, 100% { transform: translateY(0px) rotateY(0deg); }
-    50% { transform: translateY(-20px) rotateY(5deg); }
-}
-
-.vr-frame {
+.vr-preview {
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #2d3748, #4a5568);
-    border-radius: 20px;
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border-radius: 24px;
+    overflow: hidden;
     position: relative;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
 }
 
-.vr-frame::before {
-    content: '';
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    right: 10px;
-    bottom: 10px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    border-radius: 15px;
-    opacity: 0.8;
-}
-
-.vr-lens {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background: radial-gradient(circle, #00d4ff, #0099cc);
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    box-shadow: inset 0 5px 20px rgba(0,0,0,0.3), 0 0 20px rgba(0, 212, 255, 0.5);
-    animation: lensGlow 3s ease-in-out infinite alternate;
-}
-
-@keyframes lensGlow {
-    0% { box-shadow: inset 0 5px 20px rgba(0,0,0,0.3), 0 0 20px rgba(0, 212, 255, 0.5); }
-    100% { box-shadow: inset 0 5px 20px rgba(0,0,0,0.3), 0 0 30px rgba(0, 212, 255, 0.8); }
-}
-
-.vr-lens-left {
-    left: 40px;
-}
-
-.vr-lens-right {
-    right: 40px;
-}
-
-.floating-elements {
-    position: absolute;
+.vr-scene {
     width: 100%;
     height: 100%;
-    pointer-events: none;
-}
-
-.floating-element {
-    position: absolute;
-    width: 60px;
-    height: 60px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+    transition: transform 0.1s linear;
+    cursor: grab;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
+}
+
+.vr-scene:active {
+    cursor: grabbing;
+}
+
+.vr-scene-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #334155, #475569);
     color: white;
+    font-size: 1.2rem;
+    text-align: center;
+    padding: 2rem;
+}
+
+.vr-controls {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 1rem;
+    background: rgba(0, 0, 0, 0.7);
     backdrop-filter: blur(10px);
+    padding: 0.75rem 1.5rem;
+    border-radius: 50px;
+    z-index: 10;
+}
+
+.vr-control-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.2);
-    animation: floatElements 8s ease-in-out infinite;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
 }
 
-.element-1 {
-    top: 20%;
-    left: 10%;
-    animation-delay: 0s;
+.vr-control-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
 }
 
-.element-2 {
-    top: 60%;
-    right: 10%;
-    animation-delay: 2s;
+.vr-control-btn:active {
+    transform: scale(0.95);
 }
 
-.element-3 {
-    bottom: 20%;
-    left: 20%;
-    animation-delay: 4s;
+.vr-info {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(10px);
+    padding: 0.75rem 1.5rem;
+    border-radius: 50px;
+    color: white;
+    font-weight: 600;
+    z-index: 10;
 }
 
-@keyframes floatElements {
-    0%, 100% { transform: translateY(0px) scale(1); }
-    33% { transform: translateY(-20px) scale(1.1); }
-    66% { transform: translateY(10px) scale(0.9); }
+.vr-headset-indicator {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(10px);
+    padding: 0.5rem 1rem;
+    border-radius: 50px;
+    color: white;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    z-index: 10;
+}
+
+.vr-headset-indicator i {
+    color: var(--vr-accent);
 }
 
 /* Stats Section */
@@ -362,7 +399,9 @@ include 'includes/user-header.php';
 
 /* Section Styles */
 .featured-section,
-.recent-section {
+.recent-section,
+.categories-section,
+.trending-section {
     padding: 8rem 0;
     position: relative;
 }
@@ -375,12 +414,21 @@ include 'includes/user-header.php';
     background: linear-gradient(135deg, #f8fafc, #e2e8f0);
 }
 
+.categories-section {
+    background: linear-gradient(135deg, #ffffff, #f8fafc);
+}
+
+.trending-section {
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+}
+
 .section-header {
     text-align: center;
     margin-bottom: 4rem;
-    max-width: 600px;
+    max-width: 800px;
     margin-left: auto;
     margin-right: auto;
+    position: relative;
 }
 
 .section-header h2 {
@@ -391,12 +439,27 @@ include 'includes/user-header.php';
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    position: relative;
+    display: inline-block;
+}
+
+.section-header h2::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 4px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    border-radius: 2px;
 }
 
 .section-header p {
     font-size: 1.25rem;
     color: var(--gray-600);
     line-height: 1.8;
+    margin-top: 1.5rem;
 }
 
 /* Tours Grid */
@@ -489,6 +552,12 @@ include 'includes/user-header.php';
     color: white;
 }
 
+.badge-accent {
+    background: rgba(0, 212, 255, 0.9);
+    color: white;
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+}
+
 .tour-overlay {
     position: absolute;
     top: 0;
@@ -543,6 +612,8 @@ include 'includes/user-header.php';
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
 .tour-rating {
@@ -573,6 +644,125 @@ include 'includes/user-header.php';
     gap: 0.5rem;
     color: var(--gray-600);
     font-size: 0.875rem;
+}
+
+.tour-category {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--primary);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+/* Categories Grid */
+.categories-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+.category-card {
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: inherit;
+}
+
+.category-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.8), rgba(236, 72, 153, 0.8));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 1;
+}
+
+.category-card:hover::before {
+    opacity: 1;
+}
+
+.category-card:hover {
+    transform: translateY(-10px);
+    box-shadow: var(--card-shadow-hover);
+}
+
+.category-content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    color: white;
+    padding: 2rem;
+}
+
+.category-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: white;
+}
+
+.category-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.category-count {
+    font-size: 0.875rem;
+    opacity: 0.9;
+}
+
+/* Trending Tours */
+.trending-tours {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 3rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+.trending-card {
+    background: white;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.trending-card:hover {
+    transform: translateY(-10px);
+    box-shadow: var(--card-shadow-hover);
+}
+
+.trending-badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 50px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    z-index: 3;
+    box-shadow: 0 5px 15px rgba(245, 158, 11, 0.3);
 }
 
 /* Empty State */
@@ -777,9 +967,17 @@ include 'includes/user-header.php';
         font-size: 3rem;
     }
     
+    .vr-preview-container {
+        height: 350px;
+    }
+    
     .tours-grid {
         grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
         gap: 2rem;
+    }
+    
+    .trending-tours {
+        grid-template-columns: 1fr;
     }
     
     .features-grid {
@@ -811,22 +1009,13 @@ include 'includes/user-header.php';
         max-width: 300px;
     }
     
-    .vr-headset {
-        width: 250px;
-        height: 150px;
+    .vr-preview-container {
+        height: 300px;
     }
     
-    .vr-lens {
-        width: 60px;
-        height: 60px;
-    }
-    
-    .vr-lens-left {
-        left: 30px;
-    }
-    
-    .vr-lens-right {
-        right: 30px;
+    .vr-control-btn {
+        width: 40px;
+        height: 40px;
     }
     
     .stats-grid {
@@ -838,6 +1027,10 @@ include 'includes/user-header.php';
         grid-template-columns: 1fr;
         gap: 2rem;
         padding: 0 1rem;
+    }
+    
+    .categories-grid {
+        grid-template-columns: 1fr;
     }
     
     .section-header h2 {
@@ -876,10 +1069,8 @@ include 'includes/user-header.php';
         font-size: 2rem;
     }
     
-    .floating-element {
-        width: 40px;
-        height: 40px;
-        font-size: 16px;
+    .vr-controls {
+        padding: 0.5rem 1rem;
     }
 }
 
@@ -930,39 +1121,54 @@ include 'includes/user-header.php';
 }
 </style>
 
-<!-- Hero Section -->
+<!-- Hero Section with 360° Preview -->
 <section class="hero">
-    <div class="container">
-        <div class="hero-content">
-            <div class="hero-text">
-                <h1 class="hero-title">Step Into Another World</h1>
-                <p class="hero-description">Experience breathtaking 360° virtual tours of museums, landmarks, and hidden gems from around the globe.</p>
-                <div class="hero-actions">
-                    <a href="tours.php" class="btn btn-primary btn-lg">
-                        <i class="fas fa-compass me-2"></i>Explore Tours
+    <div class="hero-content">
+        <div class="hero-text">
+            <h1 class="hero-title">Immerse Yourself in Virtual Worlds</h1>
+            <p class="hero-description">Experience breathtaking 360° virtual tours of museums, landmarks, and hidden gems from around the globe. Our cutting-edge VR technology brings destinations to life like never before.</p>
+            <div class="hero-actions">
+                <a href="<?php echo BASE_URL; ?>tours.php" class="btn btn-primary btn-lg">
+                    <i class="fas fa-compass me-2"></i>Explore Tours
+                </a>
+                <?php if (!isUserLoggedIn()): ?>
+                    <a href="<?php echo BASE_URL; ?>register.php" class="btn btn-outline-light btn-lg">
+                        <i class="fas fa-user-plus me-2"></i>Get Started
                     </a>
-                    <?php if (!isUserLoggedIn()): ?>
-                        <a href="register.php" class="btn btn-outline-light btn-lg">
-                            <i class="fas fa-user-plus me-2"></i>Get Started
-                        </a>
-                    <?php endif; ?>
-                </div>
+                <?php else: ?>
+                    <a href="<?php echo BASE_URL; ?>user/dashboard.php" class="btn btn-outline-light btn-lg">
+                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                    </a>
+                <?php endif; ?>
             </div>
-            <div class="hero-visual">
-                <div class="vr-headset">
-                    <div class="vr-lens vr-lens-left"></div>
-                    <div class="vr-lens vr-lens-right"></div>
-                    <div class="vr-frame"></div>
-                </div>
-                <div class="floating-elements">
-                    <div class="floating-element element-1">
-                        <i class="fas fa-mountain"></i>
+        </div>
+        <div class="hero-visual">
+            <div class="vr-preview-container">
+                <div class="vr-preview">
+                    <div class="vr-scene" id="vr-scene" style="background-image: url('<?php echo BASE_URL; ?>assets/images/360-sample.jpg')">
+                        <div class="vr-scene-placeholder" style="display: none;">
+                            <div>
+                                <i class="fas fa-vr-cardboard mb-3" style="font-size: 3rem;"></i>
+                                <p>Drag to explore this 360° view</p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="floating-element element-2">
-                        <i class="fas fa-landmark"></i>
+                    <div class="vr-info">
+                        <i class="fas fa-map-marker-alt me-2"></i> Taj Mahal, India
                     </div>
-                    <div class="floating-element element-3">
-                        <i class="fas fa-umbrella-beach"></i>
+                    <div class="vr-headset-indicator">
+                        <i class="fas fa-vr-cardboard"></i> VR Compatible
+                    </div>
+                    <div class="vr-controls">
+                        <button class="vr-control-btn" id="vr-zoom-in">
+                            <i class="fas fa-search-plus"></i>
+                        </button>
+                        <button class="vr-control-btn" id="vr-fullscreen">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                        <button class="vr-control-btn" id="vr-zoom-out">
+                            <i class="fas fa-search-minus"></i>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -994,6 +1200,61 @@ include 'includes/user-header.php';
     </div>
 </section>
 
+<!-- Trending Tours -->
+<?php if (!empty($trending_tours)): ?>
+<section class="trending-section">
+    <div class="container">
+        <div class="section-header">
+            <h2>Trending Now</h2>
+            <p>Most popular virtual experiences this week</p>
+        </div>
+        
+        <div class="trending-tours">
+            <?php foreach ($trending_tours as $tour): ?>
+                <div class="trending-card">
+                    <div class="tour-image">
+                        <?php if ($tour['thumbnail']): ?>
+                            <img src="<?php echo BASE_URL; ?>assets/images/uploads/<?= htmlspecialchars($tour['thumbnail']) ?>" alt="<?= htmlspecialchars($tour['title']) ?>" loading="lazy">
+                        <?php else: ?>
+                            <div class="tour-image-placeholder">
+                                <i class="fas fa-image"></i>
+                            </div>
+                        <?php endif; ?>
+                        <div class="tour-badges">
+                            <span class="badge badge-primary">Trending</span>
+                            <span class="badge badge-secondary"><?= $tour['scene_count'] ?> scenes</span>
+                        </div>
+                        <span class="trending-badge">
+                            <i class="fas fa-fire me-1"></i> Hot
+                        </span>
+                        <div class="tour-overlay">
+                            <a href="<?php echo BASE_URL; ?>vr/tour.php?id=<?= $tour['id'] ?>" class="btn btn-primary">
+                                <i class="fas fa-play"></i> Start Tour
+                            </a>
+                        </div>
+                    </div>
+                    <div class="tour-content">
+                        <h3 class="tour-title"><?= htmlspecialchars($tour['title']) ?></h3>
+                        <p class="tour-description"><?= htmlspecialchars(substr($tour['description'], 0, 100)) ?>...</p>
+                        <div class="tour-meta">
+                            <div class="tour-rating">
+                                <?php for ($i = 1; $i <= 5; $i++): ?>
+                                    <i class="fas fa-star <?= $i <= round($tour['avg_rating']) ? 'active' : '' ?>"></i>
+                                <?php endfor; ?>
+                                <span>(<?= $tour['avg_rating'] ? round($tour['avg_rating'], 1) : 'No ratings' ?>)</span>
+                            </div>
+                            <div class="tour-category">
+                                <i class="fas fa-tag"></i> <?= htmlspecialchars($tour['category_name']) ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
+
 <!-- Featured Tours -->
 <section class="featured-section">
     <div class="container">
@@ -1014,7 +1275,7 @@ include 'includes/user-header.php';
                     <div class="tour-card">
                         <div class="tour-image">
                             <?php if ($tour['thumbnail']): ?>
-                                <img src="assets/images/uploads/<?= htmlspecialchars($tour['thumbnail']) ?>" alt="<?= htmlspecialchars($tour['title']) ?>" loading="lazy">
+                                <img src="<?php echo BASE_URL; ?>assets/images/uploads/<?= htmlspecialchars($tour['thumbnail']) ?>" alt="<?= htmlspecialchars($tour['title']) ?>" loading="lazy">
                             <?php else: ?>
                                 <div class="tour-image-placeholder">
                                     <i class="fas fa-image"></i>
@@ -1025,7 +1286,7 @@ include 'includes/user-header.php';
                                 <span class="badge badge-secondary"><?= $tour['scene_count'] ?> scenes</span>
                             </div>
                             <div class="tour-overlay">
-                                <a href="vr/tour.php?id=<?= $tour['id'] ?>" class="btn btn-primary">
+                                <a href="<?php echo BASE_URL; ?>vr/tour.php?id=<?= $tour['id'] ?>" class="btn btn-primary">
                                     <i class="fas fa-play"></i> Start Tour
                                 </a>
                             </div>
@@ -1040,6 +1301,9 @@ include 'includes/user-header.php';
                                     <?php endfor; ?>
                                     <span>(<?= $tour['avg_rating'] ? round($tour['avg_rating'], 1) : 'No ratings' ?>)</span>
                                 </div>
+                                <div class="tour-category">
+                                    <i class="fas fa-tag"></i> <?= htmlspecialchars($tour['category_name']) ?>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1048,12 +1312,290 @@ include 'includes/user-header.php';
         </div>
         
         <div class="section-footer">
-            <a href="tours.php" class="btn btn-outline-primary">
+            <a href="<?php echo BASE_URL; ?>tours.php" class="btn btn-outline-primary">
                 <i class="fas fa-eye me-2"></i>View All Tours
             </a>
         </div>
     </div>
 </section>
+
+<!-- Categories Section -->
+<?php 
+// Debug: Check what categories we have
+error_log("Categories data: " . print_r($categories, true));
+echo "<!-- Categories data: " . htmlspecialchars(print_r($categories, true)) . " -->";
+?><section class="categories-section">
+    <div class="container">
+        <div class="section-header">
+            <h2>Explore Categories</h2>
+            <p>Find tours by your interests</p>
+        </div>
+        
+        <div class="categories-grid">
+            <?php if (empty($categories)): ?>
+                <div class="empty-state">
+                    <i class="fas fa-tags"></i>
+                    <h3>No Categories Yet</h3>
+                    <p>Categories will be added soon!</p>
+                </div>
+            <?php else: ?>
+                <?php 
+                // Define category colors and icons
+                $category_styles = [
+                    'Historical' => ['color' => '#8B4513', 'icon' => 'fa-landmark'],
+                    'Nature' => ['color' => '#228B22', 'icon' => 'fa-mountain'],
+                    'Cultural' => ['color' => '#DAA520', 'icon' => 'fa-globe-americas'],
+                    'Religious' => ['color' => '#9370DB', 'icon' => 'fa-place-of-worship'],
+                    'Museums' => ['color' => '#4169E1', 'icon' => 'fa-university'],
+                    'Landmarks' => ['color' => '#DC143C', 'icon' => 'fa-monument'],
+                    'General' => ['color' => '#6366f1', 'icon' => 'fa-globe']
+                ];
+                
+                foreach ($categories as $category): 
+                    $category_name = $category['name'];
+                    $style = $category_styles[$category_name] ?? $category_styles['General'];
+                ?>
+                    <a href="<?php echo BASE_URL; ?>tours.php?category=<?= urlencode($category_name) ?>" 
+                       class="category-card">
+                        <div class="category-icon">
+                            <i class="fas <?= $style['icon'] ?>" style="color: <?= $style['color'] ?>;"></i>
+                        </div>
+                        <h3 class="category-title"><?= htmlspecialchars($category_name) ?></h3>
+                        <div class="category-count"><?= $category['tour_count'] ?> tour<?= $category['tour_count'] != 1 ? 's' : '' ?></div>
+                    </a>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+    
+    <style>
+    /* Categories Section Styles */
+    .categories-section {
+        padding: 80px 0;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        position: relative;
+    }
+    
+    .categories-section .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px;
+    }
+    
+    .section-header {
+        text-align: center;
+        margin-bottom: 60px;
+    }
+    
+    .section-header h2 {
+        font-size: 2.8rem;
+        font-weight: 800;
+        color: #1a202c;
+        margin-bottom: 16px;
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .section-header p {
+        font-size: 1.2rem;
+        color: #64748b;
+        max-width: 600px;
+        margin: 0 auto;
+        line-height: 1.6;
+    }
+    
+    .categories-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 24px;
+        width: 100%;
+    }
+    
+    .category-card {
+        background: white;
+        border-radius: 16px;
+        padding: 30px 25px;
+        text-align: center;
+        text-decoration: none;
+        color: #334155;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #e2e8f0;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .category-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(135deg, #6366f1, #ec4899);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .category-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+    
+    .category-card:hover::before {
+        opacity: 1;
+    }
+    
+    .category-icon {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+    }
+    
+    .category-card:hover .category-icon {
+        background: #6366f1;
+        transform: scale(1.1);
+    }
+    
+    .category-card:hover .category-icon i {
+        color: white !important;
+    }
+    
+    .category-icon i {
+        font-size: 2rem;
+        transition: all 0.3s ease;
+    }
+    
+    .category-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin-bottom: 12px;
+        color: #1e293b;
+        line-height: 1.3;
+    }
+    
+    .category-count {
+        font-size: 0.95rem;
+        color: #64748b;
+        background: #f8fafc;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .category-card:hover .category-count {
+        background: #6366f1;
+        color: white;
+    }
+    
+    .empty-state {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 60px 20px;
+        color: #64748b;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        color: #cbd5e1;
+        opacity: 0.7;
+    }
+    
+    .empty-state h3 {
+        font-size: 1.8rem;
+        margin-bottom: 12px;
+        color: #475569;
+        font-weight: 600;
+    }
+    
+    .empty-state p {
+        font-size: 1.1rem;
+        color: #94a3b8;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 1024px) {
+        .categories-grid {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .categories-section {
+            padding: 60px 0;
+        }
+        
+        .section-header {
+            margin-bottom: 40px;
+        }
+        
+        .section-header h2 {
+            font-size: 2.2rem;
+        }
+        
+        .categories-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .category-card {
+            padding: 25px 20px;
+        }
+        
+        .category-icon {
+            width: 60px;
+            height: 60px;
+            margin-bottom: 16px;
+        }
+        
+        .category-icon i {
+            font-size: 1.7rem;
+        }
+        
+        .category-title {
+            font-size: 1.2rem;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .categories-section .container {
+            padding: 0 15px;
+        }
+        
+        .section-header h2 {
+            font-size: 1.9rem;
+        }
+        
+        .section-header p {
+            font-size: 1.1rem;
+        }
+        
+        .category-card {
+            padding: 20px 15px;
+        }
+    }
+    </style>
+</section>
+
 
 <!-- Recent Tours -->
 <section class="recent-section">
@@ -1075,7 +1617,7 @@ include 'includes/user-header.php';
                     <div class="tour-card">
                         <div class="tour-image">
                             <?php if ($tour['thumbnail']): ?>
-                                <img src="assets/images/uploads/<?= htmlspecialchars($tour['thumbnail']) ?>" alt="<?= htmlspecialchars($tour['title']) ?>" loading="lazy">
+                                <img src="<?php echo BASE_URL; ?>assets/images/uploads/<?= htmlspecialchars($tour['thumbnail']) ?>" alt="<?= htmlspecialchars($tour['title']) ?>" loading="lazy">
                             <?php else: ?>
                                 <div class="tour-image-placeholder">
                                     <i class="fas fa-image"></i>
@@ -1086,7 +1628,7 @@ include 'includes/user-header.php';
                                 <span class="badge badge-success">New</span>
                             </div>
                             <div class="tour-overlay">
-                                <a href="vr/tour.php?id=<?= $tour['id'] ?>" class="btn btn-primary">
+                                <a href="<?php echo BASE_URL; ?>vr/tour.php?id=<?= $tour['id'] ?>" class="btn btn-primary">
                                     <i class="fas fa-play"></i> Start Tour
                                 </a>
                             </div>
@@ -1099,6 +1641,9 @@ include 'includes/user-header.php';
                                     <i class="fas fa-clock"></i>
                                     <?= time_ago($tour['created_at']) ?>
                                 </span>
+                                <div class="tour-category">
+                                    <i class="fas fa-tag"></i> <?= htmlspecialchars($tour['category_name']) ?>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1122,21 +1667,21 @@ include 'includes/user-header.php';
                     <i class="fas fa-360-degrees"></i>
                 </div>
                 <h3>360° Immersion</h3>
-                <p>Complete panoramic views with seamless navigation between scenes</p>
+                <p>Complete panoramic views with seamless navigation between scenes. Feel like you're really there with our high-resolution 360° imagery.</p>
             </div>
             <div class="feature-item">
                 <div class="feature-icon">
                     <i class="fas fa-vr-cardboard"></i>
                 </div>
                 <h3>VR Ready</h3>
-                <p>Fully compatible with VR headsets for an immersive experience</p>
+                <p>Fully compatible with VR headsets for an immersive experience. Supports Oculus, HTC Vive, and Google Cardboard.</p>
             </div>
             <div class="feature-item">
                 <div class="feature-icon">
                     <i class="fas fa-mobile-alt"></i>
                 </div>
                 <h3>Mobile Friendly</h3>
-                <p>Optimized for all devices - desktop, tablet, and mobile</p>
+                <p>Optimized for all devices - desktop, tablet, and mobile. Gyroscope support for mobile devices enhances the experience.</p>
             </div>
         </div>
     </div>
@@ -1147,14 +1692,14 @@ include 'includes/user-header.php';
     <div class="container">
         <div class="cta-content">
             <h2>Ready to Explore?</h2>
-            <p>Join thousands of users experiencing the world through virtual reality</p>
+            <p>Join thousands of users experiencing the world through virtual reality. Start your journey today.</p>
             <div class="cta-actions">
                 <?php if (!isUserLoggedIn()): ?>
-                    <a href="register.php" class="btn btn-primary btn-lg">Create Account</a>
-                    <a href="tours.php" class="btn btn-outline-light btn-lg">Browse Tours</a>
+                    <a href="<?php echo BASE_URL; ?>register.php" class="btn btn-primary btn-lg">Create Account</a>
+                    <a href="<?php echo BASE_URL; ?>tours.php" class="btn btn-outline-light btn-lg">Browse Tours</a>
                 <?php else: ?>
-                    <a href="tours.php" class="btn btn-primary btn-lg">Explore Tours</a>
-                    <a href="vr/tour.php?id=2" class="btn btn-outline-light btn-lg">Try Demo</a>
+                    <a href="<?php echo BASE_URL; ?>tours.php" class="btn btn-primary btn-lg">Explore Tours</a>
+                    <a href="<?php echo BASE_URL; ?>vr/tour.php?id=2" class="btn btn-outline-light btn-lg">Try Demo</a>
                 <?php endif; ?>
             </div>
         </div>
@@ -1163,6 +1708,160 @@ include 'includes/user-header.php';
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // 360° Image Interaction
+    const vrScene = document.getElementById('vr-scene');
+    let isDragging = false;
+    let startX, startY;
+    let currentX = 0, currentY = 0;
+    let sensitivity = 0.5;
+    
+    if (vrScene) {
+        // Mouse events for desktop
+        vrScene.addEventListener('mousedown', function(e) {
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            vrScene.style.cursor = 'grabbing';
+        });
+        
+        document.addEventListener('mousemove', function(e) {
+            if (!isDragging) return;
+            
+            const dx = (e.clientX - startX) * sensitivity;
+            const dy = (e.clientY - startY) * sensitivity;
+            
+            currentX += dx;
+            currentY += dy;
+            
+            // Limit vertical movement for more natural experience
+            currentY = Math.max(Math.min(currentY, 30), -30);
+            
+            vrScene.style.transform = `rotateY(${currentX}deg) rotateX(${currentY}deg)`;
+            
+            startX = e.clientX;
+            startY = e.clientY;
+        });
+        
+        document.addEventListener('mouseup', function() {
+            isDragging = false;
+            vrScene.style.cursor = 'grab';
+        });
+        
+        // Touch events for mobile
+        vrScene.addEventListener('touchstart', function(e) {
+            isDragging = true;
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            e.preventDefault();
+        });
+        
+        document.addEventListener('touchmove', function(e) {
+            if (!isDragging) return;
+            
+            const dx = (e.touches[0].clientX - startX) * sensitivity;
+            const dy = (e.touches[0].clientY - startY) * sensitivity;
+            
+            currentX += dx;
+            currentY += dy;
+            
+            // Limit vertical movement for more natural experience
+            currentY = Math.max(Math.min(currentY, 30), -30);
+            
+            vrScene.style.transform = `rotateY(${currentX}deg) rotateX(${currentY}deg)`;
+            
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            
+            e.preventDefault();
+        });
+        
+        document.addEventListener('touchend', function() {
+            isDragging = false;
+        });
+        
+        // VR Controls
+        const zoomInBtn = document.getElementById('vr-zoom-in');
+        const zoomOutBtn = document.getElementById('vr-zoom-out');
+        const fullscreenBtn = document.getElementById('vr-fullscreen');
+        let zoomLevel = 1;
+        
+        if (zoomInBtn) {
+            zoomInBtn.addEventListener('click', function() {
+                if (zoomLevel < 2) {
+                    zoomLevel += 0.1;
+                    vrScene.style.transform = `rotateY(${currentX}deg) rotateX(${currentY}deg) scale(${zoomLevel})`;
+                }
+            });
+        }
+        
+        if (zoomOutBtn) {
+            zoomOutBtn.addEventListener('click', function() {
+                if (zoomLevel > 0.5) {
+                    zoomLevel -= 0.1;
+                    vrScene.style.transform = `rotateY(${currentX}deg) rotateX(${currentY}deg) scale(${zoomLevel})`;
+                }
+            });
+        }
+        
+        if (fullscreenBtn) {
+            fullscreenBtn.addEventListener('click', function() {
+                const container = vrScene.closest('.vr-preview-container');
+                if (!document.fullscreenElement) {
+                    if (container.requestFullscreen) {
+                        container.requestFullscreen();
+                    } else if (container.webkitRequestFullscreen) {
+                        container.webkitRequestFullscreen();
+                    } else if (container.msRequestFullscreen) {
+                        container.msRequestFullscreen();
+                    }
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
+                    }
+                }
+            });
+        }
+        
+        // Auto-rotation when not interacting
+        let autoRotateInterval;
+        
+        function startAutoRotation() {
+            autoRotateInterval = setInterval(() => {
+                if (!isDragging) {
+                    currentX += 0.1;
+                    vrScene.style.transform = `rotateY(${currentX}deg) rotateX(${currentY}deg) scale(${zoomLevel})`;
+                }
+            }, 50);
+        }
+        
+        function stopAutoRotation() {
+            clearInterval(autoRotateInterval);
+        }
+        
+        // Start auto-rotation after 5 seconds of inactivity
+        let inactivityTimer;
+        
+        function resetInactivityTimer() {
+            clearTimeout(inactivityTimer);
+            stopAutoRotation();
+            inactivityTimer = setTimeout(() => {
+                startAutoRotation();
+            }, 5000);
+        }
+        
+        // Set up event listeners for user activity
+        ['mousedown', 'mousemove', 'touchstart', 'touchmove', 'keydown'].forEach(event => {
+            document.addEventListener(event, resetInactivityTimer, { passive: true });
+        });
+        
+        // Initialize
+        resetInactivityTimer();
+    }
+    
     // Enhanced scroll animations
     const observerOptions = {
         threshold: 0.1,
@@ -1194,7 +1893,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }, observerOptions);
 
     // Observe all animatable elements
-    document.querySelectorAll('.stats-section, .featured-section, .recent-section, .features-section, .tours-grid').forEach(el => {
+    document.querySelectorAll('.stats-section, .featured-section, .recent-section, .features-section, .tours-grid, .categories-grid, .trending-tours').forEach(el => {
         observer.observe(el);
     });
 
@@ -1202,6 +1901,13 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.tour-card').forEach((card, index) => {
         card.style.opacity = '0';
         card.style.transform = 'translateY(50px)';
+        card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+    });
+
+    // Initialize category cards with stagger effect
+    document.querySelectorAll('.category-card').forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(30px)';
         card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
     });
 
@@ -1254,12 +1960,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const speed = scrolled * 0.5;
             parallax.style.transform = `translateY(${speed}px)`;
         }
-    });
-
-    // Enhanced floating elements animation
-    document.querySelectorAll('.floating-element').forEach((element, index) => {
-        element.style.animationDelay = `${index * 2}s`;
-        element.style.animationDuration = `${8 + index}s`;
     });
 
     // Intersection observer for fade-in animations
@@ -1405,6 +2105,26 @@ const additionalStyles = `
 
     .feature-item:nth-child(3) {
         animation-delay: 0.4s;
+    }
+
+    .category-card:nth-child(2) {
+        animation-delay: 0.1s;
+    }
+
+    .category-card:nth-child(3) {
+        animation-delay: 0.2s;
+    }
+
+    .category-card:nth-child(4) {
+        animation-delay: 0.3s;
+    }
+
+    .category-card:nth-child(5) {
+        animation-delay: 0.4s;
+    }
+
+    .category-card:nth-child(6) {
+        animation-delay: 0.5s;
     }
     </style>
 `;

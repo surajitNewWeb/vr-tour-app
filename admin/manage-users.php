@@ -36,7 +36,12 @@ $users = $pdo->query("
 
 include '../includes/header.php';
 ?>
-
+<style>
+    .badge {
+        font-size: 0.9em;
+        color:black;
+    }
+</style>
 <!-- Begin Page Content -->
 <div class="container-fluid">
     <!-- Page Heading -->

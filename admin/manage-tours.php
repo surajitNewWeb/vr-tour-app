@@ -598,7 +598,35 @@ include '../includes/header.php';
     </div>
 </div>
 <!-- /.container-fluid -->
+<style>
+    
+.thumbnail-preview {
+    width: 80px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+}
 
+.thumbnail-placeholder {
+    width: 60px;
+    height: 60px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+}
+
+.badge {
+    font-weight: 500;
+    padding: 5px 10px;
+    border-radius: 4px;
+        color: black;
+    background-color: #56f1e1;
+}
+
+</style>
 <?php
 include '../includes/footer.php';
 ?>

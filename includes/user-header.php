@@ -50,7 +50,6 @@ $user_data = getUserData();
         href="<?php echo BASE_URL; ?>assets/images/favicon/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16"
         href="<?php echo BASE_URL; ?>assets/images/favicon/favicon-16x16.png">
-    <link rel="manifest" href="<?php echo BASE_URL; ?>assets/images/favicon/site.webmanifest">
 
     <title>
         <?php echo htmlspecialchars($page_title); ?> - VR Tour Application
@@ -113,13 +112,11 @@ $user_data = getUserData();
             --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
             --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
             --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
             --radius-sm: 0.125rem;
             --radius: 0.375rem;
             --radius-md: 0.5rem;
             --radius-lg: 0.75rem;
             --radius-xl: 1rem;
-            --radius-2xl: 1.5rem;
             --transition: all 0.15s ease-in-out;
         }
 
@@ -129,33 +126,7 @@ $user_data = getUserData();
             padding: 0;
         }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-            line-height: 1.6;
-            color: var(--gray-800);
-            background: var(--gray-50);
-            overflow-x: hidden;
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: var(--gray-100);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--primary);
-            border-radius: 3px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--primary-dark);
-        }
-
-        /* Header Styles with Modern Design */
+        /* Header Styles */
         .navbar {
             position: fixed;
             top: 0;
@@ -167,12 +138,12 @@ $user_data = getUserData();
             padding: 0;
             z-index: 1000;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            box-shadow: var(--shadow);
         }
 
         .navbar.scrolled {
             background: rgba(255, 255, 255, 0.98);
-            box-shadow: var(--shadow-lg);
+            box-shadow: var(--shadow-md);
             border-bottom: 1px solid rgba(99, 102, 241, 0.2);
         }
 
@@ -194,26 +165,6 @@ $user_data = getUserData();
             font-size: 1.5rem;
             color: var(--primary);
             transition: var(--transition);
-            position: relative;
-            z-index: 10;
-        }
-
-        .navbar-brand::before {
-            content: '';
-            position: absolute;
-            top: -8px;
-            left: -8px;
-            right: -8px;
-            bottom: -8px;
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(236, 72, 153, 0.1));
-            border-radius: var(--radius-lg);
-            opacity: 0;
-            transition: var(--transition);
-            z-index: -1;
-        }
-
-        .navbar-brand:hover::before {
-            opacity: 1;
         }
 
         .navbar-brand i {
@@ -223,17 +174,6 @@ $user_data = getUserData();
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            animation: pulse 2s ease-in-out infinite alternate;
-        }
-
-        @keyframes pulse {
-            0% {
-                transform: scale(1);
-            }
-
-            100% {
-                transform: scale(1.05);
-            }
         }
 
         .navbar-menu {
@@ -266,43 +206,12 @@ $user_data = getUserData();
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .nav-link::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.1), transparent);
-            transition: left 0.5s;
-        }
-
-        .nav-link:hover::before {
-            left: 100%;
         }
 
         .nav-link:hover,
         .nav-link.active {
             color: var(--primary);
             background: rgba(99, 102, 241, 0.1);
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
-        }
-
-        .nav-link.active::after {
-            content: '';
-            position: absolute;
-            bottom: -8px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 6px;
-            height: 6px;
-            background: var(--primary);
-            border-radius: 50%;
         }
 
         .navbar-item.has-dropdown {
@@ -316,11 +225,11 @@ $user_data = getUserData();
             width: 220px;
             background: white;
             border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-xl);
+            box-shadow: var(--shadow-lg);
             padding: 0.75rem;
             opacity: 0;
             visibility: hidden;
-            transform: translateY(-10px) scale(0.95);
+            transform: translateY(-10px);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 1001;
             border: 1px solid var(--gray-200);
@@ -329,7 +238,7 @@ $user_data = getUserData();
         .navbar-item.has-dropdown:hover .navbar-dropdown {
             opacity: 1;
             visibility: visible;
-            transform: translateY(0) scale(1);
+            transform: translateY(0);
         }
 
         .dropdown-item {
@@ -348,25 +257,12 @@ $user_data = getUserData();
         .dropdown-item:hover {
             background: var(--gray-100);
             color: var(--primary);
-            transform: translateX(4px);
-        }
-
-        .dropdown-item i {
-            width: 16px;
-            text-align: center;
-            color: var(--gray-500);
-            transition: var(--transition);
-        }
-
-        .dropdown-item:hover i {
-            color: var(--primary);
         }
 
         .dropdown-divider {
             height: 1px;
             background: var(--gray-200);
             margin: 0.5rem 0;
-            border-radius: 1px;
         }
 
         .user-avatar {
@@ -380,22 +276,6 @@ $user_data = getUserData();
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             border: 2px solid white;
             box-shadow: var(--shadow-md);
-            position: relative;
-        }
-
-        .user-avatar::before {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            border-radius: 50%;
-            opacity: 0;
-            transition: var(--transition);
-            z-index: -1;
-        }
-
-        .user-avatar:hover::before {
-            opacity: 0.3;
         }
 
         .user-avatar img {
@@ -424,10 +304,6 @@ $user_data = getUserData();
             transition: var(--transition);
         }
 
-        .navbar-burger:hover {
-            background: var(--gray-100);
-        }
-
         .navbar-burger span {
             width: 20px;
             height: 2px;
@@ -435,7 +311,6 @@ $user_data = getUserData();
             margin: 2px 0;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             transform-origin: center;
-            border-radius: 1px;
         }
 
         .navbar-burger.active span:nth-child(1) {
@@ -466,27 +341,7 @@ $user_data = getUserData();
             text-decoration: none;
             transition: var(--transition);
             cursor: pointer;
-            position: relative;
-            overflow: hidden;
             font-size: 0.875rem;
-        }
-
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            transition: all 0.3s ease;
-        }
-
-        .btn:hover::before {
-            width: 300px;
-            height: 300px;
         }
 
         .btn-primary {
@@ -509,8 +364,6 @@ $user_data = getUserData();
         .btn-outline:hover {
             background: var(--primary);
             color: white;
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
         }
 
         .buttons {
@@ -531,17 +384,6 @@ $user_data = getUserData();
             color: white;
             padding: 4rem 0 2rem;
             position: relative;
-            overflow: hidden;
-        }
-
-        .footer::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--primary), transparent);
         }
 
         .footer-content {
@@ -593,13 +435,10 @@ $user_data = getUserData();
             color: white;
             text-decoration: none;
             transition: var(--transition);
-            backdrop-filter: blur(10px);
         }
 
         .social-link:hover {
             background: var(--primary);
-            transform: translateY(-4px) scale(1.05);
-            box-shadow: var(--shadow-lg);
         }
 
         .footer-section h3 {
@@ -607,18 +446,6 @@ $user_data = getUserData();
             margin-bottom: 1.5rem;
             font-size: 1.25rem;
             font-weight: 700;
-            position: relative;
-        }
-
-        .footer-section h3::after {
-            content: '';
-            position: absolute;
-            bottom: -8px;
-            left: 0;
-            width: 30px;
-            height: 2px;
-            background: var(--primary);
-            border-radius: 1px;
         }
 
         .footer-links {
@@ -638,35 +465,16 @@ $user_data = getUserData();
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.25rem 0;
         }
 
         .footer-links a:hover {
             color: white;
-            transform: translateX(4px);
-        }
-
-        .footer-links a::before {
-            content: '→';
-            opacity: 0;
-            transform: translateX(-10px);
-            transition: var(--transition);
-            color: var(--primary);
-        }
-
-        .footer-links a:hover::before {
-            opacity: 1;
-            transform: translateX(0);
         }
 
         .footer-newsletter {
             display: flex;
             gap: 0.5rem;
             margin-top: 1rem;
-        }
-
-        .footer-newsletter .control {
-            flex: 1;
         }
 
         .footer-newsletter input {
@@ -676,18 +484,11 @@ $user_data = getUserData();
             border-radius: var(--radius-lg);
             background: rgba(255, 255, 255, 0.1);
             color: white;
-            backdrop-filter: blur(10px);
-            transition: var(--transition);
         }
 
         .footer-newsletter input:focus {
             outline: none;
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-        }
-
-        .footer-newsletter input::placeholder {
-            color: var(--gray-400);
         }
 
         .footer-newsletter button {
@@ -699,11 +500,6 @@ $user_data = getUserData();
             cursor: pointer;
             transition: var(--transition);
             font-weight: 600;
-        }
-
-        .footer-newsletter button:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
         }
 
         .footer-bottom {
@@ -720,22 +516,6 @@ $user_data = getUserData();
             color: var(--gray-500);
         }
 
-        .footer-payments {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .footer-payments i {
-            font-size: 1.5rem;
-            color: var(--gray-500);
-            transition: var(--transition);
-        }
-
-        .footer-payments i:hover {
-            color: var(--primary);
-            transform: scale(1.1);
-        }
-
         /* Toast Container */
         .toast-container {
             position: fixed;
@@ -745,63 +525,39 @@ $user_data = getUserData();
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
-            pointer-events: none;
         }
 
         .toast {
             padding: 1.25rem 1.5rem;
             border-radius: var(--radius-xl);
             background: white;
-            box-shadow: var(--shadow-xl);
+            box-shadow: var(--shadow-lg);
             display: flex;
             align-items: center;
             gap: 1rem;
             animation: toastIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             max-width: 380px;
             border-left: 4px solid;
-            backdrop-filter: blur(10px);
-            pointer-events: all;
         }
 
         .toast.toast-success {
             border-left-color: var(--success);
-            background: rgba(16, 185, 129, 0.05);
         }
 
         .toast.toast-error {
             border-left-color: var(--danger);
-            background: rgba(239, 68, 68, 0.05);
         }
 
         .toast.toast-warning {
             border-left-color: var(--warning);
-            background: rgba(245, 158, 11, 0.05);
         }
 
         .toast.toast-info {
             border-left-color: var(--info);
-            background: rgba(59, 130, 246, 0.05);
         }
 
         .toast-icon {
             font-size: 1.375rem;
-            flex-shrink: 0;
-        }
-
-        .toast.toast-success .toast-icon {
-            color: var(--success);
-        }
-
-        .toast.toast-error .toast-icon {
-            color: var(--danger);
-        }
-
-        .toast.toast-warning .toast-icon {
-            color: var(--warning);
-        }
-
-        .toast.toast-info .toast-icon {
-            color: var(--info);
         }
 
         .toast-message {
@@ -818,23 +574,15 @@ $user_data = getUserData();
             padding: 0.375rem;
             border-radius: var(--radius);
             transition: var(--transition);
-            flex-shrink: 0;
-        }
-
-        .toast-close:hover {
-            color: var(--gray-700);
-            background: var(--gray-100);
-            transform: scale(1.1);
         }
 
         @keyframes toastIn {
             from {
-                transform: translateX(100%) scale(0.9);
+                transform: translateX(100%);
                 opacity: 0;
             }
-
             to {
-                transform: translateX(0) scale(1);
+                transform: translateX(0);
                 opacity: 1;
             }
         }
@@ -855,7 +603,7 @@ $user_data = getUserData();
             z-index: 999;
             opacity: 0;
             visibility: hidden;
-            transform: translateY(20px) scale(0.8);
+            transform: translateY(20px);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             align-items: center;
@@ -865,27 +613,7 @@ $user_data = getUserData();
         .back-to-top.visible {
             opacity: 1;
             visibility: visible;
-            transform: translateY(0) scale(1);
-        }
-
-        .back-to-top:hover {
-            transform: translateY(-4px) scale(1.05);
-            box-shadow: var(--shadow-xl);
-        }
-
-        .back-to-top::before {
-            content: '';
-            position: absolute;
-            inset: -4px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            border-radius: 50%;
-            opacity: 0;
-            transition: var(--transition);
-            z-index: -1;
-        }
-
-        .back-to-top:hover::before {
-            opacity: 0.3;
+            transform: translateY(0);
         }
 
         /* Loading Spinner */
@@ -900,7 +628,6 @@ $user_data = getUserData();
             align-items: center;
             justify-content: center;
             z-index: 9999;
-            backdrop-filter: blur(8px);
         }
 
         .spinner-icon {
@@ -910,57 +637,12 @@ $user_data = getUserData();
             animation: spin 1s linear infinite;
         }
 
-        .spinner-content p {
-            font-size: 1.1rem;
-            font-weight: 500;
-            margin: 0;
-        }
-
         @keyframes spin {
             from {
                 transform: rotate(0deg);
             }
-
             to {
                 transform: rotate(360deg);
-            }
-        }
-
-        /* Accessibility */
-        @media (prefers-reduced-motion: reduce) {
-
-            *,
-            *::before,
-            *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
-        }
-
-        /* Focus styles for accessibility */
-        .nav-link:focus,
-        .btn:focus,
-        .dropdown-item:focus {
-            outline: 2px solid var(--primary);
-            outline-offset: 2px;
-        }
-
-        /* High contrast mode support */
-        @media (prefers-contrast: high) {
-            .navbar {
-                background: white;
-                border-bottom: 2px solid black;
-            }
-
-            .nav-link {
-                color: black;
-            }
-
-            .nav-link:hover,
-            .nav-link.active {
-                background: black;
-                color: white;
             }
         }
 
@@ -994,16 +676,6 @@ $user_data = getUserData();
                 grid-template-columns: repeat(2, 1fr);
                 gap: 2rem;
             }
-
-            .buttons {
-                flex-direction: column;
-                gap: 0.5rem;
-            }
-
-            .btn {
-                width: 100%;
-                justify-content: center;
-            }
         }
 
         @media (max-width: 768px) {
@@ -1020,12 +692,11 @@ $user_data = getUserData();
                 backdrop-filter: blur(20px);
                 flex-direction: column;
                 padding: 2rem 1.5rem;
-                box-shadow: var(--shadow-xl);
+                box-shadow: var(--shadow-lg);
                 transform: translateY(-100%);
                 opacity: 0;
                 visibility: hidden;
                 transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                border-bottom: 1px solid var(--gray-200);
             }
 
             .navbar-menu.active {
@@ -1149,73 +820,7 @@ $user_data = getUserData();
                 font-size: 0.875rem;
             }
         }
-
-        /* Dark mode support */
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --gray-50: #1f2937;
-                --gray-100: #374151;
-                --gray-200: #4b5563;
-                --gray-300: #6b7280;
-                --gray-700: #d1d5db;
-                --gray-800: #e5e7eb;
-                --gray-900: #f9fafb;
-            }
-
-            body {
-                background: #111827;
-                color: #f9fafb;
-            }
-
-            .navbar {
-                background: rgba(17, 24, 39, 0.95);
-                border-bottom-color: rgba(99, 102, 241, 0.2);
-            }
-
-            .navbar.scrolled {
-                background: rgba(17, 24, 39, 0.98);
-            }
-
-            .navbar-dropdown {
-                background: #1f2937;
-                border-color: #374151;
-            }
-
-            .toast {
-                background: #1f2937;
-                color: #f9fafb;
-            }
-
-            .footer-newsletter input {
-                background: rgba(17, 24, 39, 0.5);
-                border-color: #374151;
-                color: #f9fafb;
-            }
-        }
-
-        /* Print styles */
-        @print {
-
-            .navbar,
-            .footer,
-            .toast-container,
-            .back-to-top,
-            .loading-spinner {
-                display: none !important;
-            }
-
-            .main-content {
-                margin-top: 0;
-            }
-
-            body {
-                background: white;
-                color: black;
-            }
-        }
     </style>
-
-
 </head>
 
 <body class="<?php echo trim($body_class); ?>">
@@ -1245,7 +850,7 @@ $user_data = getUserData();
 
             <div class="navbar-menu" id="navbar-menu">
                 <div class="navbar-start">
-                    <a href="<?php echo BASE_URL; ?>"
+                    <a href="<?php echo BASE_URL; ?>index.php"
                         class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'active' : ''; ?>"
                         aria-current="<?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'page' : 'false'; ?>">
                         <i class="fas fa-home" aria-hidden="true"></i>
@@ -1263,20 +868,22 @@ $user_data = getUserData();
                         <i class="fas fa-address-card" aria-hidden="true"></i>
                         <span>About</span>
                     </a>
-                     <a href="<?php echo BASE_URL; ?>contact.php"
+                    <a href="<?php echo BASE_URL; ?>contact.php"
                         class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'contact.php' ? 'active' : ''; ?>"
                         aria-current="<?php echo basename($_SERVER['PHP_SELF']) == 'contact.php' ? 'page' : 'false'; ?>">
                         <i class="fas fa-address-book" aria-hidden="true"></i>
-                        <span>contact</span>
+                        <span>Contact</span>
                     </a>
                 </div>
 
                 <div class="navbar-end">
-                    <?php if (isUserLoggedIn()): ?>
+                    <?php if (isUserLoggedIn()): 
+                        $user_data = getUserData();
+                    ?>
                         <div class="navbar-item has-dropdown">
                             <a class="nav-link" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">
                                 <span class="user-avatar">
-                                    <?php if ($user_data['avatar']): ?>
+                                    <?php if (!empty($user_data['avatar'])): ?>
                                         <img src="<?php echo BASE_URL; ?>assets/images/uploads/<?php echo $user_data['avatar']; ?>"
                                             alt="<?php echo htmlspecialchars($user_data['username']); ?>" loading="lazy">
                                     <?php else: ?>
@@ -1325,7 +932,6 @@ $user_data = getUserData();
             </button>
         </div>
     </nav>
-
 
     <!-- Main Content -->
     <main class="main-content" role="main">

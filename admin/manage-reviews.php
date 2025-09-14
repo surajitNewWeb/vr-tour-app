@@ -1,255 +1,190 @@
 <?php
-// Include config first
+// admin/manage-reviews.php
 require_once '../includes/config.php';
 require_once '../includes/auth.php';
 require_once '../includes/database.php';
+require_once '../includes/header.php';
+require_once '../includes/sidebar.php';
 
-// Then your page-specific code
-$page_title = "Page Title";
+// Check permission
 redirectIfNotLoggedIn();
-// ... rest of your code
 
 // Handle actions
-$action = $_GET['action'] ?? '';
-$review_id = $_GET['id'] ?? 0;
-
-// Approve review
-if ($action === 'approve' && $review_id) {
-    $stmt = $pdo->prepare("UPDATE reviews SET approved = 1 WHERE id = ?");
-    if ($stmt->execute([$review_id])) {
+if (isset($_GET['action']) && isset($_GET['id'])) {
+    $reviewId = intval($_GET['id']);
+    
+    if ($_GET['action'] == 'approve') {
+        $stmt = $pdo->prepare("UPDATE reviews SET approved = 1 WHERE id = ?");
+        $stmt->execute([$reviewId]);
         $_SESSION['success'] = "Review approved successfully.";
-    } else {
-        $_SESSION['error'] = "Error approving review.";
-    }
-    header("Location: manage-reviews.php");
-    exit();
-}
-
-// Delete review
-if ($action === 'delete' && $review_id) {
-    $stmt = $pdo->prepare("DELETE FROM reviews WHERE id = ?");
-    if ($stmt->execute([$review_id])) {
+    } 
+    elseif ($_GET['action'] == 'delete') {
+        $stmt = $pdo->prepare("DELETE FROM reviews WHERE id = ?");
+        $stmt->execute([$reviewId]);
         $_SESSION['success'] = "Review deleted successfully.";
-    } else {
-        $_SESSION['error'] = "Error deleting review.";
     }
-    header("Location: manage-reviews.php");
-    exit();
 }
 
-// Get all reviews with user and tour information
-$reviews = $pdo->query("
-    SELECT r.*, u.username, u.email, t.title as tour_title 
-    FROM reviews r 
-    JOIN users u ON r.user_id = u.id 
-    JOIN tours t ON r.tour_id = t.id 
+// Pagination
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$limit = 10;
+$offset = ($page - 1) * $limit;
+
+// Filters
+$filter = isset($_GET['filter']) ? $_GET['filter'] : 'all';
+$whereClause = "";
+$params = [];
+
+if ($filter == 'pending') {
+    $whereClause = "WHERE r.approved = 0";
+} elseif ($filter == 'approved') {
+    $whereClause = "WHERE r.approved = 1";
+}
+
+// Get total count
+$countStmt = $pdo->prepare("SELECT COUNT(*) FROM reviews r $whereClause");
+$countStmt->execute($params);
+$totalReviews = $countStmt->fetchColumn();
+$totalPages = ceil($totalReviews / $limit);
+
+// Get reviews
+$stmt = $pdo->prepare("
+    SELECT r.*, u.username, u.email, t.title as tour_title
+    FROM reviews r
+    LEFT JOIN users u ON r.user_id = u.id
+    LEFT JOIN tours t ON r.tour_id = t.id
+    $whereClause
     ORDER BY r.created_at DESC
-")->fetchAll();
-
-// Count approved and pending reviews
-$approved_reviews = array_filter($reviews, function($review) { return $review['approved']; });
-$pending_reviews = array_filter($reviews, function($review) { return !$review['approved']; });
-
-include '../includes/header.php';
+    LIMIT $limit OFFSET $offset
+");
+$stmt->execute($params);
+$reviews = $stmt->fetchAll();
 ?>
 
-<!-- Begin Page Content -->
-<div class="container-fluid">
-    <!-- Page Heading -->
-    <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">Manage Reviews</h1>
-        <div>
-            <span class="badge badge-success mr-2"><?php echo count($approved_reviews); ?> Approved</span>
-            <span class="badge badge-warning"><?php echo count($pending_reviews); ?> Pending</span>
+<div class="content">
+    <div class="header">
+        <h1>Manage Reviews</h1>
+        <div class="actions">
+            <a href="manage-reviews.php?filter=all" class="btn <?= $filter == 'all' ? 'btn-primary' : 'btn-secondary' ?>">All</a>
+            <a href="manage-reviews.php?filter=pending" class="btn <?= $filter == 'pending' ? 'btn-primary' : 'btn-secondary' ?>">Pending</a>
+            <a href="manage-reviews.php?filter=approved" class="btn <?= $filter == 'approved' ? 'btn-primary' : 'btn-secondary' ?>">Approved</a>
         </div>
     </div>
 
-    <!-- Messages -->
     <?php if (isset($_SESSION['success'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-            <?php echo $_SESSION['success']; unset($_SESSION['success']); ?>
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
+        <div class="alert alert-success">
+            <?= $_SESSION['success']; unset($_SESSION['success']); ?>
         </div>
     <?php endif; ?>
 
     <?php if (isset($_SESSION['error'])): ?>
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            <?php echo $_SESSION['error']; unset($_SESSION['error']); ?>
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
+        <div class="alert alert-danger">
+            <?= $_SESSION['error']; unset($_SESSION['error']); ?>
         </div>
     <?php endif; ?>
 
-    <!-- Reviews Table -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">All Reviews</h6>
-        </div>
+    <div class="card">
         <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-bordered table-hover" id="reviewsTable" width="100%" cellspacing="0">
-                    <thead class="thead-light">
-                        <tr>
-                            <th>Tour</th>
-                            <th>User</th>
-                            <th>Rating</th>
-                            <th>Comment</th>
-                            <th>Date</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($reviews as $review): ?>
+            <?php if (count($reviews) > 0): ?>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
                             <tr>
-                                <td>
-                                    <strong><?php echo htmlspecialchars($review['tour_title']); ?></strong>
-                                </td>
-                                <td>
-                                    <div><?php echo htmlspecialchars($review['username']); ?></div>
-                                    <small class="text-muted"><?php echo htmlspecialchars($review['email']); ?></small>
-                                </td>
-                                <td>
-                                    <div class="text-warning">
-                                        <?php for ($i = 1; $i <= 5; $i++): ?>
-                                            <i class="fas fa-star<?php echo $i <= $review['rating'] ? '' : '-half-alt'; ?>"></i>
-                                        <?php endfor; ?>
-                                        <br>
-                                        <small class="text-muted">(<?php echo $review['rating']; ?>/5)</small>
-                                    </div>
-                                </td>
-                                <td>
-                                    <?php echo strlen($review['comment']) > 100 ? 
-                                        substr($review['comment'], 0, 100) . '...' : 
-                                        $review['comment']; ?>
-                                </td>
-                                <td><?php echo date('M j, Y', strtotime($review['created_at'])); ?></td>
-                                <td>
-                                    <span class="badge badge-<?php echo $review['approved'] ? 'success' : 'warning'; ?>">
-                                        <?php echo $review['approved'] ? 'Approved' : 'Pending'; ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="btn-group btn-group-sm">
-                                        <?php if (!$review['approved']): ?>
-                                            <a href="?action=approve&id=<?php echo $review['id']; ?>" 
-                                               class="btn btn-success" title="Approve Review">
-                                                <i class="fas fa-check"></i>
-                                            </a>
-                                        <?php endif; ?>
-                                        <a href="?action=delete&id=<?php echo $review['id']; ?>" 
-                                           class="btn btn-danger" 
-                                           onclick="return confirm('Are you sure you want to delete this review?')"
-                                           title="Delete Review">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
-                                    </div>
-                                </td>
+                                <th>ID</th>
+                                <th>Tour</th>
+                                <th>User</th>
+                                <th>Rating</th>
+                                <th>Comment</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th>Actions</th>
                             </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Reviews Statistics -->
-    <div class="row">
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-primary shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                Total Reviews</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo count($reviews); ?></div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-star fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($reviews as $review): ?>
+                                <tr>
+                                    <td><?= $review['id'] ?></td>
+                                    <td><?= htmlspecialchars($review['tour_title']) ?></td>
+                                    <td><?= htmlspecialchars($review['username']) ?><br><small><?= htmlspecialchars($review['email']) ?></small></td>
+                                    <td>
+                                        <div class="rating">
+                                            <?php for ($i = 1; $i <= 5; $i++): ?>
+                                                <span class="star <?= $i <= $review['rating'] ? 'filled' : '' ?>">★</span>
+                                            <?php endfor; ?>
+                                        </div>
+                                    </td>
+                                    <td><?= nl2br(htmlspecialchars(substr($review['comment'], 0, 100) . (strlen($review['comment']) > 100 ? '...' : ''))) ?></td>
+                                    <td>
+                                        <span class="badge badge-<?= $review['approved'] ? 'success' : 'warning' ?>">
+                                            <?= $review['approved'] ? 'Approved' : 'Pending' ?>
+                                        </span>
+                                    </td>
+                                    <td><?= date('M j, Y g:i A', strtotime($review['created_at'])) ?></td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <?php if (!$review['approved']): ?>
+                                                <a href="manage-reviews.php?action=approve&id=<?= $review['id'] ?>" class="btn btn-sm btn-success" title="Approve">
+                                                    <i class="fas fa-check"></i>
+                                                </a>
+                                            <?php endif; ?>
+                                            <a href="manage-reviews.php?action=delete&id=<?= $review['id'] ?>" class="btn btn-sm btn-danger" title="Delete" onclick="return confirm('Are you sure you want to delete this review?')">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
-            </div>
-        </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-success shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                Approved Reviews</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo count($approved_reviews); ?></div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+                <!-- Pagination -->
+                <?php if ($totalPages > 1): ?>
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination">
+                            <?php if ($page > 1): ?>
+                                <li class="page-item">
+                                    <a class="page-link" href="manage-reviews.php?page=<?= $page-1 ?>&filter=<?= $filter ?>" aria-label="Previous">
+                                        <span aria-hidden="true">&laquo;</span>
+                                    </a>
+                                </li>
+                            <?php endif; ?>
 
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-warning shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                Pending Reviews</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo count($pending_reviews); ?></div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-clock fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+                            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                                <li class="page-item <?= $i == $page ? 'active' : '' ?>">
+                                    <a class="page-link" href="manage-reviews.php?page=<?= $i ?>&filter=<?= $filter ?>"><?= $i ?></a>
+                                </li>
+                            <?php endfor; ?>
 
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-info shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                Average Rating</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                <?php
-                                if (count($reviews) > 0) {
-                                    $total_rating = array_sum(array_column($reviews, 'rating'));
-                                    echo number_format($total_rating / count($reviews), 1);
-                                } else {
-                                    echo '0.0';
-                                }
-                                ?>/5
-                            </div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-chart-line fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
+                            <?php if ($page < $totalPages): ?>
+                                <li class="page-item">
+                                    <a class="page-link" href="manage-reviews.php?page=<?= $page+1 ?>&filter=<?= $filter ?>" aria-label="Next">
+                                        <span aria-hidden="true">&raquo;</span>
+                                    </a>
+                                </li>
+                            <?php endif; ?>
+                        </ul>
+                    </nav>
+                <?php endif; ?>
+            <?php else: ?>
+                <div class="text-center py-5">
+                    <i class="fas fa-comments fa-3x text-muted mb-3"></i>
+                    <h4>No reviews found</h4>
+                    <p class="text-muted">There are no reviews to display.</p>
                 </div>
-            </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
-<!-- /.container-fluid -->
 
-<script>
-// Initialize DataTables
-document.addEventListener('DOMContentLoaded', function() {
-    $('#reviewsTable').DataTable({
-        pageLength: 10,
-        ordering: true,
-        order: [[4, 'desc']], // Sort by date descending
-        responsive: true
-    });
-});
-</script>
+<style>
+.rating {
+    color: #ddd;
+    font-size: 16px;
+}
+.rating .star.filled {
+    color: #ffc107;
+}
+</style>
 
-<?php
-include '../includes/footer.php';
-?>
+<?php require_once '../includes/footer.php'; ?>

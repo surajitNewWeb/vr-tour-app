@@ -15,7 +15,9 @@ define('ADMIN_EMAIL', 'admin@vrtour.com');
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
 $host = $_SERVER['HTTP_HOST'];
 $script_path = dirname($_SERVER['SCRIPT_NAME']);
-$base_url = rtrim($protocol . $host . $script_path, '/') . '/';
+$project_folder = basename(dirname(__DIR__)); 
+
+$base_url = $protocol . $host . '/' . $project_folder . '/';
 define('BASE_URL', $base_url);
 
 // Session settings

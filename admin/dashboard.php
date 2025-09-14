@@ -70,11 +70,10 @@ include '../includes/header.php';
 }
 
 .create-tour-btn {
+    padding: 10px 20px;
+    font-weight: 500;
     background: linear-gradient(45deg, #ff6b6b, #ee5a24);
     border: none;
-    padding: 12px 24px;
-    font-weight: 600;
-    text-transform: uppercase;
     letter-spacing: 0.5px;
     border-radius: 25px;
     box-shadow: 0 4px 15px rgba(238, 90, 36, 0.3);

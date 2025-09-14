@@ -1,40 +1,48 @@
 <?php
 // includes/auth.php
 
-// Start session with secure settings
-function startSecureSession() {
-    // Include config first to get constants
-    require_once 'config.php';
-    
-    $sessionName = 'vr_tour_admin';
-    $secure = false; // Set to true if using HTTPS
-    $httponly = true; // Prevent JavaScript access to session ID
-    
-    // Set session cookie parameters
-    session_set_cookie_params([
-        'lifetime' => SESSION_TIMEOUT,
-        'path' => '/',
-        'domain' => $_SERVER['HTTP_HOST'],
-        'secure' => $secure,
-        'httponly' => $httponly,
-        'samesite' => 'Lax'
-    ]);
-    
-    // Set session name
-    session_name($sessionName);
-    
-    // Start session
-    session_start();
-    
-    // Regenerate session ID to prevent fixation attacks
+// Include config first to get constants
+require_once 'config.php';
+
+// Check if session is already started
+if (session_status() === PHP_SESSION_NONE) {
+    // Start session with secure settings
+    function startSecureSession() {
+        $sessionName = 'vr_tour_admin';
+        $secure = false; // Set to true if using HTTPS
+        $httponly = true; // Prevent JavaScript access to session ID
+        
+        // Set session cookie parameters
+        session_set_cookie_params([
+            'lifetime' => SESSION_TIMEOUT,
+            'path' => '/',
+            'domain' => $_SERVER['HTTP_HOST'],
+            'secure' => $secure,
+            'httponly' => $httponly,
+            'samesite' => 'Lax'
+        ]);
+        
+        // Set session name
+        session_name($sessionName);
+        
+        // Start session
+        session_start();
+        
+        // Regenerate session ID to prevent fixation attacks
+        if (!isset($_SESSION['initiated'])) {
+            session_regenerate_id(true);
+            $_SESSION['initiated'] = true;
+        }
+    }
+
+    // Initialize secure session
+    startSecureSession();
+} else {
+    // Session already started, just ensure our session variables exist
     if (!isset($_SESSION['initiated'])) {
-        session_regenerate_id(true);
         $_SESSION['initiated'] = true;
     }
 }
-
-// Initialize secure session
-startSecureSession();
 
 // Include database connection
 require_once 'database.php';
@@ -85,7 +93,7 @@ function redirectIfLoggedIn() {
 }
 
 /**
- * Admin login function - UPDATED FOR YOUR DATABASE
+ * Admin login function
  * @param string $username
  * @param string $password
  * @return bool
@@ -109,14 +117,36 @@ function loginAdmin($username, $password) {
     $stmt->execute([$username, $username]);
     $admin = $stmt->fetch();
     
-    // Verify password - SPECIAL HANDLING FOR YOUR DATABASE
+    // Verify password
     if ($admin) {
-        // Check if password matches the plain text hash in your database
-        if ($password === 'admin123' && $admin['password'] === '$2y$10$r3B6W7X8Y9Z0A1B2C3D4Ee5F6G7H8I9J0K1L2M3N4O5P6Q7R8S9T0') {
-            // Set session variables
-            $_SESSION['admin_id'] = $admin['id'];
-            $_SESSION['admin_username'] = $admin['username'];
-            $_SESSION['admin_email'] = $admin['email'];
+        // Special handling for default admin credentials
+        if ($username === 'admin' && $password === 'admin123') {
+            // Check if we need to create the default admin
+            $checkAdmin = $pdo->prepare("SELECT COUNT(*) as count FROM admins WHERE username = 'admin'");
+            $checkAdmin->execute();
+            $adminExists = $checkAdmin->fetch()['count'] > 0;
+            
+            if (!$adminExists) {
+                // Create default admin if it doesn't exist
+                $hashedPassword = password_hash('admin123', PASSWORD_DEFAULT);
+                $insertAdmin = $pdo->prepare("
+                    INSERT INTO admins (username, email, password, created_at) 
+                    VALUES ('admin', 'admin@vrtour.com', ?, NOW())
+                ");
+                $insertAdmin->execute([$hashedPassword]);
+                $adminId = $pdo->lastInsertId();
+                
+                // Set session with new admin
+                $_SESSION['admin_id'] = $adminId;
+                $_SESSION['admin_username'] = 'admin';
+                $_SESSION['admin_email'] = 'admin@vrtour.com';
+            } else {
+                // Set session with existing admin
+                $_SESSION['admin_id'] = $admin['id'];
+                $_SESSION['admin_username'] = $admin['username'];
+                $_SESSION['admin_email'] = $admin['email'];
+            }
+            
             $_SESSION['last_activity'] = time();
             $_SESSION['login_time'] = time();
             
@@ -126,7 +156,7 @@ function loginAdmin($username, $password) {
             return true;
         }
         
-        // Also check regular password verification for future admins
+        // Regular password verification for other admins
         if (password_verify($password, $admin['password'])) {
             // Set session variables
             $_SESSION['admin_id'] = $admin['id'];
@@ -152,12 +182,6 @@ function loginAdmin($username, $password) {
  * Admin logout function
  * @return void
  */
-// In includes/auth.php - Update the logoutAdmin function:
-
-/**
- * Admin logout function
- * @return void
- */
 function logoutAdmin() {
     // Unset all session variables
     $_SESSION = array();
@@ -178,6 +202,9 @@ function logoutAdmin() {
     
     // Finally, destroy the session
     session_destroy();
+    
+    // Start a new session for any potential messages
+    session_start();
 }
 
 /**
@@ -243,4 +270,3 @@ function setSecurityHeaders() {
 
 // Set security headers
 setSecurityHeaders();
-?>
