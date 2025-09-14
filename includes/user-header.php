@@ -1257,11 +1257,17 @@ $user_data = getUserData();
                         <i class="fas fa-compass" aria-hidden="true"></i>
                         <span>Browse Tours</span>
                     </a>
-                    <a href="<?php echo BASE_URL; ?>categories.php"
-                        class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'categories.php' ? 'active' : ''; ?>"
-                        aria-current="<?php echo basename($_SERVER['PHP_SELF']) == 'categories.php' ? 'page' : 'false'; ?>">
-                        <i class="fas fa-tags" aria-hidden="true"></i>
-                        <span>Categories</span>
+                    <a href="<?php echo BASE_URL; ?>about.php"
+                        class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'about.php' ? 'active' : ''; ?>"
+                        aria-current="<?php echo basename($_SERVER['PHP_SELF']) == 'about.php' ? 'page' : 'false'; ?>">
+                        <i class="fas fa-address-card" aria-hidden="true"></i>
+                        <span>About</span>
+                    </a>
+                     <a href="<?php echo BASE_URL; ?>contact.php"
+                        class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'contact.php' ? 'active' : ''; ?>"
+                        aria-current="<?php echo basename($_SERVER['PHP_SELF']) == 'contact.php' ? 'page' : 'false'; ?>">
+                        <i class="fas fa-address-book" aria-hidden="true"></i>
+                        <span>contact</span>
                     </a>
                 </div>
 

@@ -20,6 +20,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (empty($email)) {
         $errors[] = "Email address is required.";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = "Please enter a valid email address.";
     }
     
     if (empty($password)) {
@@ -41,11 +43,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (!empty($errors)) {
         $_SESSION['user_error'] = implode("<br>", $errors);
+        // Store form data to repopulate fields
+        $_SESSION['form_data'] = ['email' => $email];
     }
 }
 
 $page_title = "Login - VR Tour Application";
 include 'includes/user-header.php';
+
+// Get form data from session if available
+$form_email = isset($_SESSION['form_data']['email']) ? $_SESSION['form_data']['email'] : '';
+unset($_SESSION['form_data']); // Clear after use
 ?>
 
 <style>
@@ -188,6 +196,13 @@ include 'includes/user-header.php';
 
 .form-control:hover {
     border-color: #d1d5db;
+}
+
+.form-text {
+    font-size: 13px;
+    color: #6b7280;
+    margin-top: 6px;
+    font-weight: 400;
 }
 
 /* Checkbox Styling */
@@ -391,6 +406,26 @@ hr {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* Validation Styles */
+.is-invalid {
+    border-color: #ef4444 !important;
+}
+
+.is-valid {
+    border-color: #10b981 !important;
+}
+
+.invalid-feedback {
+    display: none;
+    color: #ef4444;
+    font-size: 13px;
+    margin-top: 6px;
+}
+
+.was-validated .form-control:invalid ~ .invalid-feedback {
+    display: block;
+}
 </style>
 
 <div class="auth-wrapper">
@@ -407,7 +442,10 @@ hr {
             <?php if (isset($_SESSION['user_error'])): ?>
                 <div class="alert alert-danger">
                     <i class="fas fa-exclamation-circle" style="margin-right: 8px;"></i>
-                    <?php echo $_SESSION['user_error']; unset($_SESSION['user_error']); ?>
+                    <?php 
+                    echo $_SESSION['user_error']; 
+                    unset($_SESSION['user_error']); // Clear error after displaying
+                    ?>
                 </div>
             <?php endif; ?>
             
@@ -418,14 +456,24 @@ hr {
                 </div>
             <?php endif; ?>
             
-            <form method="POST" action="" id="login-form">
+            <?php if (isset($_GET['logout']) && $_GET['logout'] == 1): ?>
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle" style="margin-right: 8px;"></i>
+                    You have been successfully logged out.
+                </div>
+            <?php endif; ?>
+            
+            <form method="POST" action="" id="login-form" class="needs-validation" novalidate>
                 <div class="mb-3">
                     <label for="email" class="form-label">Email Address</label>
                     <div class="input-group">
                         <input type="email" class="form-control" id="email" name="email"
-                               value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>"
+                               value="<?php echo htmlspecialchars($form_email); ?>"
                                required autocomplete="email" placeholder="your@email.com">
                         <i class="fas fa-envelope input-icon"></i>
+                    </div>
+                    <div class="invalid-feedback">
+                        Please provide a valid email address.
                     </div>
                 </div>
                 
@@ -436,11 +484,9 @@ hr {
                                required autocomplete="current-password" placeholder="Enter your password">
                         <i class="fas fa-lock input-icon"></i>
                     </div>
-                </div>
-                
-                <div class="mb-3 form-check">
-                    <input type="checkbox" class="form-check-input" id="remember" name="remember">
-                    <label class="form-check-label" for="remember">Remember me</label>
+                    <div class="invalid-feedback">
+                        Password is required.
+                    </div>
                 </div>
                 
                 <button type="submit" class="log-btn btn btn-primary" id="submit-btn">Login</button>
@@ -460,15 +506,26 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('login-form');
     const submitBtn = document.getElementById('submit-btn');
 
-    // Form submission with loading state
-    if (form && submitBtn) {
+    // Form validation
+    if (form) {
         form.addEventListener('submit', function(e) {
-            const isValid = form.checkValidity();
-            
-            if (isValid) {
-                submitBtn.classList.add('loading');
-                submitBtn.disabled = true;
+            if (!form.checkValidity()) {
+                e.preventDefault();
+                e.stopPropagation();
+            } else {
+                // Show loading state
+                if (submitBtn) {
+                    submitBtn.classList.add('loading');
+                    submitBtn.disabled = true;
+                    
+                    // Force form submission even if there are pending JavaScript operations
+                    setTimeout(function() {
+                        form.submit();
+                    }, 100);
+                }
             }
+            
+            form.classList.add('was-validated');
         });
     }
 
@@ -477,15 +534,17 @@ document.addEventListener('DOMContentLoaded', function() {
     inputs.forEach(input => {
         input.addEventListener('blur', function() {
             if (!this.checkValidity()) {
-                this.style.borderColor = '#ef4444';
+                this.classList.add('is-invalid');
             } else {
-                this.style.borderColor = '#10b981';
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
             }
         });
 
         input.addEventListener('input', function() {
             if (this.checkValidity()) {
-                this.style.borderColor = '#e5e7eb';
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
             }
         });
     });

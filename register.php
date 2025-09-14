@@ -10,6 +10,31 @@ if (isUserLoggedIn()) {
     exit();
 }
 
+// Helper function to check if username exists
+// Helper function to check if username exists
+function usernameExists($username) {
+    $db = new Database();
+    $conn = $db->getConnection();
+    
+    $stmt = $conn->prepare("SELECT id FROM users WHERE username = ?");
+    $stmt->bindValue(1, $username, PDO::PARAM_STR);
+    $stmt->execute();
+    
+    return $stmt->rowCount() > 0;
+}
+
+// Helper function to check if email exists
+function emailExists($email) {
+    $db = new Database();
+    $conn = $db->getConnection();
+    
+    $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+    $stmt->bindValue(1, $email, PDO::PARAM_STR);
+    $stmt->execute();
+    
+    return $stmt->rowCount() > 0;
+}
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username']);
@@ -22,6 +47,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (empty($username)) {
         $errors[] = "Username is required.";
+    } elseif (strlen($username) < 3) {
+        $errors[] = "Username must be at least 3 characters long.";
+    } elseif (!preg_match('/^[a-zA-Z0-9_]+$/', $username)) {
+        $errors[] = "Username can only contain letters, numbers, and underscores.";
     }
     
     if (empty($email)) {
@@ -41,18 +70,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Passwords do not match.";
     }
     
+// In your register.php, add these checks before attempting registration
+if (empty($errors)) {
+    global $userAuth;
+    
+    // Check if username exists
+    if ($userAuth->usernameExists($username)) {
+        $errors[] = "Username already exists. Please choose a different one.";
+    }
+    
+    // Check if email exists
+    if ($userAuth->emailExists($email)) {
+        $errors[] = "Email address is already registered. Please use a different email.";
+    }
+    
     if (empty($errors)) {
-        // Use the UserAuth class to register the user
-        global $userAuth;
+        $registration_result = $userAuth->register($username, $email, $password);
         
-        if ($userAuth->register($username, $email, $password)) {
+        if ($registration_result === true) {
             // Registration successful, redirect to dashboard
             header("Location: user/dashboard.php");
             exit();
         } else {
-            $errors[] = "Registration failed. Username or email may already exist.";
+            $errors[] = "Registration failed. Please try again later.";
         }
     }
+}
     
     if (!empty($errors)) {
         $_SESSION['user_error'] = implode("<br>", $errors);
@@ -417,6 +460,26 @@ hr {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* Validation Styles */
+.is-invalid {
+    border-color: #ef4444 !important;
+}
+
+.is-valid {
+    border-color: #10b981 !important;
+}
+
+.invalid-feedback {
+    display: none;
+    color: #ef4444;
+    font-size: 13px;
+    margin-top: 6px;
+}
+
+.was-validated .form-control:invalid ~ .invalid-feedback {
+    display: block;
+}
 </style>
 
 <div class="auth-wrapper">
@@ -437,14 +500,17 @@ hr {
                 </div>
             <?php endif; ?>
             
-            <form method="POST" action="" id="register-form">
+            <form method="POST" action="" id="register-form" class="needs-validation" novalidate>
                 <div class="mb-3">
                     <label for="username" class="form-label">Username</label>
                     <div class="input-group">
                         <input type="text" class="form-control" id="username" name="username" 
                                value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>" 
-                               required autocomplete="username" placeholder="Choose a unique username">
+                               required pattern="[a-zA-Z0-9_]{3,}" autocomplete="username" placeholder="Choose a unique username">
                         <i class="fas fa-user input-icon"></i>
+                    </div>
+                    <div class="invalid-feedback">
+                        Username must be at least 3 characters and contain only letters, numbers, and underscores.
                     </div>
                 </div>
                 
@@ -456,18 +522,24 @@ hr {
                                required autocomplete="email" placeholder="your@email.com">
                         <i class="fas fa-envelope input-icon"></i>
                     </div>
+                    <div class="invalid-feedback">
+                        Please provide a valid email address.
+                    </div>
                 </div>
                 
                 <div class="mb-3">
                     <label for="password" class="form-label">Password</label>
                     <div class="input-group">
                         <input type="password" class="form-control" id="password" name="password" 
-                               required autocomplete="new-password" placeholder="Create a strong password">
+                               required minlength="6" autocomplete="new-password" placeholder="Create a strong password">
                         <i class="fas fa-lock input-icon"></i>
                     </div>
                     <small class="form-text text-muted">Minimum 6 characters</small>
                     <div class="password-strength" id="password-strength">
                         <div class="password-strength-fill"></div>
+                    </div>
+                    <div class="invalid-feedback">
+                        Password must be at least 6 characters long.
                     </div>
                 </div>
                 
@@ -477,6 +549,9 @@ hr {
                         <input type="password" class="form-control" id="confirm_password" name="confirm_password" 
                                required autocomplete="new-password" placeholder="Confirm your password">
                         <i class="fas fa-lock input-icon"></i>
+                    </div>
+                    <div class="invalid-feedback" id="confirm-password-feedback">
+                        Passwords do not match.
                     </div>
                 </div>
                 
@@ -498,6 +573,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const confirmPasswordInput = document.getElementById('confirm_password');
     const passwordStrength = document.getElementById('password-strength');
     const submitBtn = document.getElementById('submit-btn');
+    const confirmPasswordFeedback = document.getElementById('confirm-password-feedback');
 
     // Password strength checker
     if (passwordInput && passwordStrength) {
@@ -519,21 +595,43 @@ document.addEventListener('DOMContentLoaded', function() {
         confirmPasswordInput.addEventListener('input', function() {
             if (passwordInput.value !== this.value) {
                 this.setCustomValidity('Passwords do not match');
+                this.classList.add('is-invalid');
+                confirmPasswordFeedback.style.display = 'block';
             } else {
                 this.setCustomValidity('');
+                this.classList.remove('is-invalid');
+                confirmPasswordFeedback.style.display = 'none';
+                this.classList.add('is-valid');
             }
         });
     }
 
-    // Form submission with loading state
-    if (form && submitBtn) {
+    // Form validation
+    if (form) {
         form.addEventListener('submit', function(e) {
-            const isValid = form.checkValidity();
-            
-            if (isValid) {
-                submitBtn.classList.add('loading');
-                submitBtn.disabled = true;
+            // Check if passwords match
+            if (passwordInput.value !== confirmPasswordInput.value) {
+                confirmPasswordInput.setCustomValidity('Passwords do not match');
+                confirmPasswordInput.classList.add('is-invalid');
+                confirmPasswordFeedback.style.display = 'block';
+                e.preventDefault();
+                e.stopPropagation();
+            } else {
+                confirmPasswordInput.setCustomValidity('');
             }
+            
+            if (!form.checkValidity()) {
+                e.preventDefault();
+                e.stopPropagation();
+            } else {
+                // Show loading state
+                if (submitBtn) {
+                    submitBtn.classList.add('loading');
+                    submitBtn.disabled = true;
+                }
+            }
+            
+            form.classList.add('was-validated');
         });
     }
 
@@ -557,15 +655,17 @@ document.addEventListener('DOMContentLoaded', function() {
     inputs.forEach(input => {
         input.addEventListener('blur', function() {
             if (!this.checkValidity()) {
-                this.style.borderColor = '#ef4444';
+                this.classList.add('is-invalid');
             } else {
-                this.style.borderColor = '#10b981';
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
             }
         });
 
         input.addEventListener('input', function() {
             if (this.checkValidity()) {
-                this.style.borderColor = '#e5e7eb';
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
             }
         });
     });

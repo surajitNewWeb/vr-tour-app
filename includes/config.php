@@ -10,15 +10,22 @@ define('DB_PASS', '');
 // Application settings
 define('SITE_NAME', 'VR Tour Application');
 define('ADMIN_EMAIL', 'admin@vrtour.com');
-define('BASE_URL', 'http://' . $_SERVER['HTTP_HOST'] . '/vr-tour-app/');
+
+// Base URL detection that works in more environments
+$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
+$host = $_SERVER['HTTP_HOST'];
+$script_path = dirname($_SERVER['SCRIPT_NAME']);
+$base_url = rtrim($protocol . $host . $script_path, '/') . '/';
+define('BASE_URL', $base_url);
 
 // Session settings
 define('SESSION_TIMEOUT', 3600); // 1 hour
 
-// File upload paths
-define('PANORAMA_UPLOAD_PATH', '../assets/panoramas/uploads/');
-define('THUMBNAIL_UPLOAD_PATH', '../assets/images/uploads/');
-define('AVATAR_UPLOAD_PATH', '../assets/images/uploads/');
+// File upload paths (absolute paths for better reliability)
+define('ROOT_PATH', dirname(dirname(__FILE__)) . '/');
+define('PANORAMA_UPLOAD_PATH', ROOT_PATH . 'assets/panoramas/uploads/');
+define('THUMBNAIL_UPLOAD_PATH', ROOT_PATH . 'assets/images/uploads/');
+define('AVATAR_UPLOAD_PATH', ROOT_PATH . 'assets/images/uploads/');
 
 // Maximum file sizes (in bytes)
 define('MAX_PANORAMA_SIZE', 10485760); // 10MB
@@ -43,4 +50,17 @@ if (DEBUG_MODE) {
 
 // Set default timezone
 date_default_timezone_set('UTC');
+
+// Start session with proper settings
+if (session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params([
+        'lifetime' => SESSION_TIMEOUT,
+        'path' => '/',
+        'domain' => $_SERVER['HTTP_HOST'],
+        'secure' => isset($_SERVER['HTTPS']),
+        'httponly' => true,
+        'samesite' => 'Strict'
+    ]);
+    session_start();
+}
 ?>

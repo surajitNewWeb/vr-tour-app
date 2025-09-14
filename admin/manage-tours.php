@@ -509,6 +509,7 @@ include '../includes/header.php';
                         <thead>
                             <tr>
                                 <th>Title</th>
+                                <th>Thumbnail</th>
                                 <th>Category</th>
                                 <th>Scenes</th>
                                 <th>Status</th>
@@ -526,6 +527,15 @@ include '../includes/header.php';
                                         <?php endif; ?>
                                         <br>
                                         <small class="text-muted">Created by Admin</small>
+                                    </td>
+                                     <td>
+                                        <?php if ($tour['thumbnail']): ?>
+                                            <img src="../assets/images/uploads/<?php echo $tour['thumbnail']; ?>" alt="Thumbnail" class="thumbnail-preview">
+                                        <?php else: ?>
+                                            <div class="thumbnail-placeholder">
+                                                <i class="fas fa-image"></i>
+                                            </div>
+                                        <?php endif; ?>
                                     </td>
                                     <td><?php echo htmlspecialchars($tour['category']); ?></td>
                                     <td>

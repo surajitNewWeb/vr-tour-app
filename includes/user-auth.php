@@ -8,13 +8,18 @@ class UserAuth {
     private $db;
     
     public function __construct() {
-        global $pdo;
-        $this->db = $pdo;
+        $this->db = $this->getDatabaseConnection();
         $this->initSession();
+    }
+    
+    private function getDatabaseConnection() {
+        $database = new Database();
+        return $database->getConnection();
     }
     
     private function initSession() {
         if (session_status() == PHP_SESSION_NONE) {
+            // Use the same session settings as config.php
             session_set_cookie_params([
                 'lifetime' => SESSION_TIMEOUT,
                 'path' => '/',
@@ -40,25 +45,32 @@ class UserAuth {
         try {
             $stmt = $this->db->prepare("SELECT id, username, email, password, avatar FROM users WHERE email = :email");
             $stmt->execute([':email' => $email]);
-            $user = $stmt->fetch();
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            if ($user && password_verify($password, $user['password'])) {
-                // Password is correct, set up session
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['user_email'] = $user['email'];
-                $_SESSION['user_username'] = $user['username'];
-                $_SESSION['user_avatar'] = $user['avatar'];
-                $_SESSION['user_logged_in'] = true;
-                $_SESSION['last_activity'] = time();
-                
-                // Update last login
-                $stmt = $this->db->prepare("UPDATE users SET last_login = NOW() WHERE id = :id");
-                $stmt->execute([':id' => $user['id']]);
-                
-                return true;
+            if ($user) {
+                // Verify the password
+                if (password_verify($password, $user['password'])) {
+                    // Password is correct, set up session
+                    $_SESSION['user_id'] = $user['id'];
+                    $_SESSION['user_email'] = $user['email'];
+                    $_SESSION['user_username'] = $user['username'];
+                    $_SESSION['user_avatar'] = $user['avatar'];
+                    $_SESSION['user_logged_in'] = true;
+                    $_SESSION['last_activity'] = time();
+                    
+                    // Update last login
+                    $update_stmt = $this->db->prepare("UPDATE users SET last_login = NOW() WHERE id = :id");
+                    $update_stmt->execute([':id' => $user['id']]);
+                    
+                    return true;
+                } else {
+                    // Password is incorrect
+                    error_log("Password verification failed for user: " . $user['email']);
+                    return false;
+                }
             }
             
-            return false;
+            return false; // User not found
         } catch (PDOException $e) {
             error_log("Login error: " . $e->getMessage());
             return false;
@@ -68,26 +80,42 @@ class UserAuth {
     public function register($username, $email, $password) {
         try {
             // Check if user already exists
-            $stmt = $this->db->prepare("SELECT id FROM users WHERE email = :email OR username = :username");
-            $stmt->execute([':email' => $email, ':username' => $username]);
+            $check_stmt = $this->db->prepare("SELECT id FROM users WHERE email = :email OR username = :username");
+            $check_stmt->execute([':email' => $email, ':username' => $username]);
             
-            if ($stmt->fetch()) {
+            if ($check_stmt->fetch()) {
                 return false; // User already exists
             }
             
-            // Hash password
+            // Hash password with proper algorithm and cost
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
             
+            if ($hashedPassword === false) {
+                error_log("Password hashing failed");
+                return false;
+            }
+            
             // Insert new user
-            $stmt = $this->db->prepare("INSERT INTO users (username, email, password, created_at) VALUES (:username, :email, :password, NOW())");
-            $stmt->execute([
+            $insert_stmt = $this->db->prepare("INSERT INTO users (username, email, password, created_at) VALUES (:username, :email, :password, NOW())");
+            $result = $insert_stmt->execute([
                 ':username' => $username,
                 ':email' => $email,
                 ':password' => $hashedPassword
             ]);
             
-            if ($stmt->rowCount() > 0) {
-                return $this->login($email, $password);
+            if ($result && $insert_stmt->rowCount() > 0) {
+                // Get the newly inserted user ID
+                $user_id = $this->db->lastInsertId();
+                
+                // Manually log the user in by setting session
+                $_SESSION['user_id'] = $user_id;
+                $_SESSION['user_email'] = $email;
+                $_SESSION['user_username'] = $username;
+                $_SESSION['user_avatar'] = ''; // Default empty avatar
+                $_SESSION['user_logged_in'] = true;
+                $_SESSION['last_activity'] = time();
+                
+                return true;
             }
             
             return false;
@@ -141,6 +169,20 @@ class UserAuth {
             ];
         }
         return null;
+    }
+    
+    // Helper method to check if username exists
+    public function usernameExists($username) {
+        $stmt = $this->db->prepare("SELECT id FROM users WHERE username = :username");
+        $stmt->execute([':username' => $username]);
+        return $stmt->fetch() !== false;
+    }
+    
+    // Helper method to check if email exists
+    public function emailExists($email) {
+        $stmt = $this->db->prepare("SELECT id FROM users WHERE email = :email");
+        $stmt->execute([':email' => $email]);
+        return $stmt->fetch() !== false;
     }
 }
 

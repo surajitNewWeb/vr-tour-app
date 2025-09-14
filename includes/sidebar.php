@@ -4,6 +4,15 @@ $current_page = basename($_SERVER['PHP_SELF']);
 ?>
 
 <style>
+    
+#wrapper {
+    display: flex;
+}
+
+#content-wrapper {
+    width: 100%;
+    overflow-x: hidden;
+}
     /* Enhanced Professional Sidebar Styles */
     .sidebar {
         background: linear-gradient(180deg, #1e3c72 0%, #2a5298 50%, #667eea 100%) !important;
